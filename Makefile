@@ -9,4 +9,4 @@ receive: receive.c
 	$(CC) -o $@ $(CFLAGS) $^  
 
 clean:
-	rm -f sends receives
+	rm -f send receive

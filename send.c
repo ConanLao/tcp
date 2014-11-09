@@ -35,8 +35,8 @@ int main(int argc, char *argv[])
 	char buf[BUFLEN];
 	bzero(buf, BUFLEN);
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
-	p_tcphdr->src_port = atoi(argv[2]);
-	p_tcphdr->dst_port = atoi(argv[4]);
+	pack_uint16(atoi(argv[2]),p_tcphdr->src_port);
+	pack_uint16(atoi(argv[4]),p_tcphdr->dst_port);
 	p_tcphdr->flags = FLAG_SYN;
 
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
@@ -50,10 +50,10 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	for (i=0; i<NPACK; i++) {
-		printf("Sending packet %d\n", i);
-		sprintf(buf, "This is packet %d\n", i);
-		if (sendto(s, buf, BUFLEN, 0, &si_other, slen)==-1)
+	for (i=0; i<1; i++) {
+		printf("Sending packet src_port:%d\n",unpack_uint16(p_tcphdr->src_port));
+		//sprintf(buf, "This is packet %d\n", i);
+		if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
 			diep("sendto()");
 	}
 

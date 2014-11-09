@@ -18,6 +18,8 @@ void diep(char *s)
 
 int main(void)
 {
+	uint16_t src_port;
+	uint16_t dst_port;
 	struct sockaddr_in si_me, si_other;
 	int s, i, slen=sizeof(si_other);
 	char buf[BUFLEN];
@@ -36,8 +38,10 @@ int main(void)
 		if (recvfrom(s, buf, BUFLEN, 0, &si_other, &slen)==-1)
 			diep("recvfrom()");
 		tcp_header_t* tcp_header =(tcp_header_t *) buf;
-		printf("src_port :%x\n dst_port:%x\n\n",tcp_header->src_port,tcp_header->dst_port); 
-		printf("flag :%x\n",tcp_header->flags); 
+		src_port = unpack_uint16(tcp_header->src_port);
+		dst_port = unpack_uint16(tcp_header->dst_port);
+		printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
+		printf("flag :%d\n",tcp_header->flags); 
 		printf("Received packet from %s:%d\nData: %s\n\n", 
 				inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
 	}
