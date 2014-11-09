@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
 		exit(-1);
 	}
 tcp_header_t tcphdr;
-bezero(&tcphdr, sizeof(tcp_header_t));
+bzero(&tcphdr, sizeof(tcp_header_t));
 tcphdr.src_port = atoi(argv[2]);
 tcphdr.dst_port = atoi(argv[2]);
 tcphdr.flags = FLAG_SYN;
