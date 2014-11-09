@@ -25,3 +25,15 @@ struct udpheader {
         unsigned short int udph_chksum;
         uint32_t data[0];
 };
+
+typedef struct {
+  	uint16_t src_port;
+  uint16_t dst_port;
+  uint32_t seq;
+  uint32_t ack;
+  uint8_t  data_offset;  // 4 bits
+  uint8_t  flags;
+  uint16_t window_size;
+  uint16_t checksum;
+  uint16_t urgent_p;
+} tcp_header_t;
