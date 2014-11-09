@@ -1,7 +1,12 @@
-all:send receive
+CC = gcc
+CFLAGS = -Wall
+INCLUDES = -I./struct.h
 
-send: 
-	gcc -Wall -o send send.c
+all: sends receives
+sends: send.c
+	$(CC) -o $@ $(CFLAGS) $^  
+receives: receive.c
+	$(CC) -o $@ $(CFLAGS) $^  
 
-receive: 
-	gcc -Wall -o receive receive.c
+clean:
+	rm -f sends receives
