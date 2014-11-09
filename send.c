@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <string.h>
+#include "struct.h"
 
 #define SRV_IP "127.0.0.1"
 #define BUFLEN 512
@@ -17,8 +19,21 @@ void diep(char *s)
 	exit(1);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+	if(argc != 5)
+	{
+		printf("- Invalid parameters!!!\n");
+		printf("- Usage %s <source hostname/IP> <source port> <target hostname/IP> <target port>\n", argv[0]);
+		exit(-1);
+	}
+tcp_header_t tcphdr;
+bezero(&tcphdr, sizeof(tcp_header_t));
+tcphdr.src_port = atoi(argv[2]);
+tcphdr.dst_port = atoi(argv[2]);
+tcphdr.flags = FLAG_SYN;
+
+
 	struct sockaddr_in si_other;
 	int s, i, slen=sizeof(si_other);
 	char buf[BUFLEN];

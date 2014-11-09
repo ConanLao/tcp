@@ -1,6 +1,17 @@
 // The packet length
 #define PCKT_LEN 8192
 
+//TCP flags
+#define FLAG_FIN 1
+#define FLAG_SYN 2
+#define FLAG_RST 4
+#define FLAG_PSH 8
+#define FLAG_ACK 16
+#define FLAG_URG 32
+#define FLAG_ECE 64
+#define FLAG_CWR 128
+#define FLAG_NS 256
+
 // Can create separate header file (.h) for all headers' structure
 // The IP header's structure
 struct ipheader {
