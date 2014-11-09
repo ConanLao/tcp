@@ -1,10 +1,11 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
+#include "struct.h"
 #define BUFLEN 512
 #define NPACK 10
 #define PORT 1235
@@ -34,6 +35,9 @@ int main(void)
 	for (i=0; i<NPACK; i++) {
 		if (recvfrom(s, buf, BUFLEN, 0, &si_other, &slen)==-1)
 			diep("recvfrom()");
+		tcp_header_t* tcp_header =(tcp_header_t *) buf;
+		printf("src_port :%x\n dst_port:%x\n\n",tcp_header->src_port,tcp_header->dst_port); 
+		printf("flag :%x\n",tcp_header->flags); 
 		printf("Received packet from %s:%d\nData: %s\n\n", 
 				inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
 	}
