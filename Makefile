@@ -2,10 +2,10 @@ CC = gcc
 CFLAGS = -Wall
 INCLUDES = -I./struct.h
 
-all: sends receives
-sends: send.c
+all: send receive
+send: send.c
 	$(CC) -o $@ $(CFLAGS) $^  
-receives: receive.c
+receive: receive.c
 	$(CC) -o $@ $(CFLAGS) $^  
 
 clean:

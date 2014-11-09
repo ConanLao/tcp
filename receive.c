@@ -8,7 +8,7 @@
 #include "struct.h"
 #define BUFLEN 512
 #define NPACK 10
-#define PORT 1235
+#define PORT 2000
 
 void diep(char *s)
 {
