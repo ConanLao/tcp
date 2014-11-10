@@ -111,21 +111,11 @@ int send_ack(){
 	int num = -2;
 	struct timeval tv;
 	tv.tv_sec = 1;
-	char *buf = calloc(1, BUFLEN);
 	int i;
 	for(i = 0;i<7;i++) {
 		printf("sending ack No.%d\n", i);
-		send_udp(FLAG_SYNACK, "");
-		printf("after\n");
-		if (num >= sizeof(tcp_header_t)) {
-			tcp_header_t* tcp_header =(tcp_header_t *) buf;
-			if (src_port == unpack_uint16(tcp_header->dst_port)
-					&& dst_port == unpack_uint16(tcp_header->src_port)
-					&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
-				state = CONNECTED;
-				return 1;
-			}
-		}
+		send_udp(FLAG_ACK, "");
+		sleep(1);
 	}
 	return 0;
 }
