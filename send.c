@@ -16,6 +16,9 @@ char* dst_ip;
 uint16_t dst_port;
 uint16_t src_port;
 int state = WAITING_FOR_SYNACK;
+int seq = 1;//should be 0 considering the handshake
+int ack = 0;
+
 
 /* diep(), #includes and #defines like in the server */
 void diep(char *s)
@@ -53,7 +56,7 @@ int receive_udp(char* buf, struct timeval tv, struct sockaddr_in si_other){
 	return num;
 }
 
-int send_udp(int type, char* data) {
+int send_udp(int type, char* data, int len, long seq) {
 	struct sockaddr_in si_other;
 	int s, i, slen=sizeof(si_other);
 	char buf[BUFLEN];
@@ -62,6 +65,7 @@ int send_udp(int type, char* data) {
 	pack_uint16(src_port, p_tcphdr->src_port);
 	pack_uint16(dst_port, p_tcphdr->dst_port);
 	p_tcphdr->flags = type;
+	pack_uint32(seq, p_tcphdr->seq_num);
 
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		diep("socket");
@@ -73,7 +77,7 @@ int send_udp(int type, char* data) {
 		fprintf(stderr, "inet_aton() failed\n");
 		exit(1);
 	}
-	if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+	if (sendto(s, (char*)p_tcphdr, sizeof(tcp_header_t) + len, 0, &si_other, slen)==-1)
 		diep("sendto()");
 	close(s);
 	return 1;
@@ -89,12 +93,15 @@ int listen_to_synack(){
 	int i;
 	for(i = 0;i<7;i++) {
 		printf("sending SYN No.%d\n", i);
-		send_udp(FLAG_SYN, "");
+		send_udp(FLAG_SYN, "", 0, 0);
 		printf("receiving SYN No.%d\n", i);
 		num = receive_udp(buf, tv, si_other);
 		printf("after\n");
 		if (num >= sizeof(tcp_header_t)) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			printf("synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
+			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
 			if (src_port == unpack_uint16(tcp_header->dst_port)
 					&& dst_port == unpack_uint16(tcp_header->src_port)
 					&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
@@ -114,7 +121,7 @@ int send_ack(){
 	int i;
 	for(i = 0;i<7;i++) {
 		printf("sending ack No.%d\n", i);
-		send_udp(FLAG_ACK, "");
+		send_udp(FLAG_ACK, "", 0, -1);
 		sleep(1);
 	}
 	return 0;
@@ -123,23 +130,55 @@ int send_ack(){
 int sonic_connect() {
 	if (state != WAITING_FOR_SYNACK)
 		printf("connect failed: state fault\n");
-	int reulst = listen_to_synack();
 	printf("state = %d\n", state);
-	return 1;	
+	return listen_to_synack();
+}
+
+int tcp_send(char* data, int len){
+	if (len == 0) {
+		return;
+	}
+	struct sockaddr_in si_other;
+	char buf[BUFLEN];
+	struct timeval tv;
+	tv.tv_sec = 1;
+	long next_seq = len + seq;
+		int i;
+		for(i = 0;i<7;i++) {
+		send_udp(FLAG_DATA, data, len, seq);
+		printf("receiving SYN No.%d\n", i);
+		int num = receive_udp(buf, tv, si_other);
+		printf("after\n");
+		if (num >= sizeof(tcp_header_t)) {
+			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			printf("synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
+			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
+			printf("seq = %ld\n", unpack_uint32(tcp_header->ack_num));
+			if (src_port == unpack_uint16(tcp_header->dst_port)
+					&& dst_port == unpack_uint16(tcp_header->src_port)
+					&& tcp_header->flags == FLAG_ACK
+					&& unpack_uint32(tcp_header->ack_num) == next_seq){//need to check the ip is the server or not
+				seq = next_seq;
+				return 1;
+			}
+		}
+	}
+	return 0;
 }
 
 int sonic_close(){
 	struct sockaddr_in si_other;
-	int num = 1;
+	int num = -2;
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	char *buf = calloc(1, BUFLEN);
 	int i;
 	for(i = 0;i<7;i++) {
-		printf("sending FYN No.%d\n", i);
-		send_udp(FLAG_FIN, "");
-		printf("receiving FYNACK No.%d\n", i);
+		printf("sending FIN No.%d\n", i);
+		send_udp(FLAG_FIN, "", 0, -1);
+		printf("receiving FINACK No.%d\n", i);
 		num = receive_udp(buf, tv, si_other);
 		if (num >= sizeof(tcp_header_t)) {
 			printf("a\n");
@@ -157,8 +196,6 @@ int sonic_close(){
 		}
 	}
 	return 0;
-
-	
 }
 
 int main(int argc, char *argv[])

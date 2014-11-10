@@ -2,6 +2,7 @@
 #define PCKT_LEN 8192
 
 //TCP flags
+#define FLAG_DATA 0
 #define FLAG_FIN 1
 #define FLAG_SYN 2
 #define FLAG_RST 4
