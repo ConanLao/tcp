@@ -30,8 +30,8 @@ int main(void)
 	{
 		{2,0,0,0,0}, //waiting for SYN
 		{0,0,0,0,0}, //waiting for SYN_ACK
-		{2,3,0,0,0}, //waiting for ACK
-		{0,0,0,0,0}, //CONNECTED 
+		{2,3,0,2,0}, //waiting for ACK
+		{0,3,3,0,0}, //CONNECTED 
 		{0,0,0,0,0}, //CLOSED
 		{0,0,0,0,0} //FIN_RECEIVED
 	};
@@ -54,7 +54,6 @@ int main(void)
 		int received_size =0;
 		if ( (received_size =recvfrom(s, buf, BUFLEN, 0, &si_other, &slen))<0)
 		{
-			//printf("sent SYN/ACK");
 			if(resend >7) 
 			{
 				printf("connection failed\n");
@@ -90,12 +89,21 @@ int main(void)
 		else if((flag & FLAG_FIN) && (flag & FLAG_ACK)==0) input =3;
 		else if(flag & FLAG_RST) input =4;
 		state = states[state][input];
+		if( (flag & FLAG_FIN) && (state!=3)) 
+		{
+			bzero(buf, BUFLEN);
+			p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
+			si_other.sin_family = AF_INET;
+			si_other.sin_port = htons(src_port);
+			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+				diep("sendto()");
+			printf("sent FIN");
+			continue;
+		}
 		if(state == 2)
 		{
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
-			pack_uint16(dst_port,p_tcphdr->src_port);
-			pack_uint16(src_port,p_tcphdr->dst_port);
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
 			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
@@ -104,6 +112,18 @@ int main(void)
 		}
 		if(state == 3)
 		{
+			if(flag & FLAG_FIN)
+			{
+				bzero(buf, BUFLEN);
+				p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
+				si_other.sin_family = AF_INET;
+				si_other.sin_port = htons(src_port);
+				if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+					diep("sendto()");
+				printf("sent FIN");
+				state =0;
+				continue;
+			}
 			printf("connected\n");
 		}
 		printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
