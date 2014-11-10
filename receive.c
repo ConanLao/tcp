@@ -9,7 +9,7 @@
 #include "struct.h"
 #define BUFLEN 512
 #define NPACK 10
-#define PORT 4000
+#define PORT 5000
 
 void diep(char *s)
 {
@@ -69,6 +69,8 @@ int main(void)
 				p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
 				pack_uint16(dst_port,p_tcphdr->src_port);
 				pack_uint16(src_port,p_tcphdr->dst_port);
+				si_other.sin_family = AF_INET;
+				si_other.sin_port = htons(src_port);
 				if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
 					diep("sendto()");
 				printf("sent SYN/ACK");
@@ -94,6 +96,8 @@ int main(void)
 			p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
 			pack_uint16(dst_port,p_tcphdr->src_port);
 			pack_uint16(src_port,p_tcphdr->dst_port);
+			si_other.sin_family = AF_INET;
+			si_other.sin_port = htons(src_port);
 			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
 				diep("sendto()");
 			printf("sent SYN/ACK");
