@@ -12,6 +12,17 @@
 #define FLAG_CWR 128
 #define FLAG_NS 256
 
+enum socket_type { CLIENT = 0, SERVER };
+
+enum socket_state {
+	WAITING_FOR_SYN = 0, 
+	WAITING_FOR_SYNACK, 
+	WAITING_FOR_ACK, 
+	CONNECTED,
+	CLOSED,
+	FIN_RECEIVED
+};
+
 // Can create separate header file (.h) for all headers' structure
 // The IP header's structure
 struct ipheader {
