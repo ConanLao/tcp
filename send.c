@@ -138,6 +138,7 @@ int tcp_send(char* data, int len){
 	if (len == 0) {
 		return;
 	}
+	printf("tcp sending data\n");
 	struct sockaddr_in si_other;
 	char buf[BUFLEN];
 	struct timeval tv;
@@ -146,15 +147,14 @@ int tcp_send(char* data, int len){
 		int i;
 		for(i = 0;i<7;i++) {
 		send_udp(FLAG_DATA, data, len, seq);
-		printf("receiving SYN No.%d\n", i);
+		printf("receiving data No.%d\n", i);
 		int num = receive_udp(buf, tv, si_other);
-		printf("after\n");
 		if (num >= sizeof(tcp_header_t)) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
-			printf("synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("data : %d\n", tcp_header->flags);//need to check the ip is the server or not
 			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
 			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
-			printf("seq = %ld\n", unpack_uint32(tcp_header->ack_num));
+			printf("ack = %ld\n", unpack_uint32(tcp_header->ack_num));
 			if (src_port == unpack_uint16(tcp_header->dst_port)
 					&& dst_port == unpack_uint16(tcp_header->src_port)
 					&& tcp_header->flags == FLAG_ACK
@@ -214,8 +214,10 @@ int main(int argc, char *argv[])
 	if (!result) {
 		return 0;
 	}
-
 	send_ack();
+	tcp_send("1",1);
+	tcp_send("22",2);
+	tcp_send("333",3);
 	sonic_close();	
 	return 0;
 }
