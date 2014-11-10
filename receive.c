@@ -79,8 +79,6 @@ int main(void)
 				continue;
 		}	
 		tcp_header_t* tcp_header =(tcp_header_t *) buf;
-		src_port = unpack_uint16(tcp_header->src_port);
-		dst_port = unpack_uint16(tcp_header->dst_port);
 		flag = tcp_header->flags;
 		int input =0;
 		if( (flag & FLAG_SYN) && (flag & FLAG_ACK)==0) input =0;
@@ -93,6 +91,8 @@ int main(void)
 		{
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
+			pack_uint16(dst_port,p_tcphdr->src_port);
+			pack_uint16(src_port,p_tcphdr->dst_port);
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
 			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
@@ -104,6 +104,8 @@ int main(void)
 		{
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
+			pack_uint16(dst_port,p_tcphdr->src_port);
+			pack_uint16(src_port,p_tcphdr->dst_port);
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
 			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
@@ -116,6 +118,8 @@ int main(void)
 			{
 				bzero(buf, BUFLEN);
 				p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
+				pack_uint16(dst_port,p_tcphdr->src_port);
+				pack_uint16(src_port,p_tcphdr->dst_port);
 				si_other.sin_family = AF_INET;
 				si_other.sin_port = htons(src_port);
 				if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
