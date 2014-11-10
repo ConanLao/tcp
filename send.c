@@ -130,9 +130,10 @@ int sonic_connect() {
 
 int sonic_close(){
 	struct sockaddr_in si_other;
-	int num = -2;
+	int num = 1;
 	struct timeval tv;
 	tv.tv_sec = 1;
+	tv.tv_usec = 0;
 	char *buf = calloc(1, BUFLEN);
 	int i;
 	for(i = 0;i<7;i++) {
@@ -141,10 +142,15 @@ int sonic_close(){
 		printf("receiving FYNACK No.%d\n", i);
 		num = receive_udp(buf, tv, si_other);
 		if (num >= sizeof(tcp_header_t)) {
+			printf("a\n");
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			printf("finack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
+			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
 			if (src_port == unpack_uint16(tcp_header->dst_port)
 					&& dst_port == unpack_uint16(tcp_header->src_port)
 					&& tcp_header->flags == FLAG_FINACK){//need to check the ip is the server or not
+				printf("b\n");
 				state = CLOSED;
 				return 1;
 			}
