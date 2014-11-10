@@ -128,6 +128,33 @@ int sonic_connect() {
 	return 1;	
 }
 
+int sonic_close(){
+	struct sockaddr_in si_other;
+	int num = -2;
+	struct timeval tv;
+	tv.tv_sec = 1;
+	char *buf = calloc(1, BUFLEN);
+	int i;
+	for(i = 0;i<7;i++) {
+		printf("sending FYN No.%d\n", i);
+		send_udp(FLAG_FIN, "");
+		printf("receiving FYNACK No.%d\n", i);
+		num = receive_udp(buf, tv, si_other);
+		if (num >= sizeof(tcp_header_t)) {
+			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			if (src_port == unpack_uint16(tcp_header->dst_port)
+					&& dst_port == unpack_uint16(tcp_header->src_port)
+					&& tcp_header->flags == FLAG_FINACK){//need to check the ip is the server or not
+				state = CLOSED;
+				return 1;
+			}
+		}
+	}
+	return 0;
+
+	
+}
+
 int main(int argc, char *argv[])
 {
 	if(argc != 5)
@@ -141,7 +168,12 @@ int main(int argc, char *argv[])
 	dst_port = atoi(argv[4]);
 	printf("Using Source IP: %s port: %u, Target IP: %s port: %u.\n", argv[1], atoi(argv[2]), argv[3], atoi(argv[4]));
 	int result = sonic_connect();	
+	if (!result) {
+		return 0;
+	}
 
+	send_ack();
+	sonic_close();	
 	return 0;
 }
 

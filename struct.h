@@ -12,6 +12,7 @@
 #define FLAG_CWR 128
 #define FLAG_NS 256
 #define FLAG_SYNACK 18
+#define FLAG_FINACK 17
 
 enum socket_type { CLIENT = 0, SERVER };
 
@@ -20,8 +21,8 @@ enum socket_state {
 	WAITING_FOR_SYNACK, 
 	WAITING_FOR_ACK, 
 	CONNECTED,
-	CLOSED,
-	FIN_RECEIVED
+	WAITING_FOR_FIN,
+	CLOSED
 };
 
 // Can create separate header file (.h) for all headers' structure
