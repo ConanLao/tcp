@@ -62,6 +62,7 @@ int send_udp(int type, char* data, int len, long seq) {
 	char buf[BUFLEN];
 	bzero(buf, BUFLEN);
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
+	memcpy(buf+sizeof(tcp_header_t), data, len);
 	pack_uint16(src_port, p_tcphdr->src_port);
 	pack_uint16(dst_port, p_tcphdr->dst_port);
 	p_tcphdr->flags = type;
@@ -77,7 +78,7 @@ int send_udp(int type, char* data, int len, long seq) {
 		fprintf(stderr, "inet_aton() failed\n");
 		exit(1);
 	}
-	if (sendto(s, (char*)p_tcphdr, sizeof(tcp_header_t) + len, 0, &si_other, slen)==-1)
+	if (sendto(s, (char*)buf, sizeof(tcp_header_t) + len, 0, &si_other, slen)==-1)
 		diep("sendto()");
 	close(s);
 	return 1;
