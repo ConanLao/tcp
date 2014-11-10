@@ -31,7 +31,7 @@ int main(void)
 		{2,0,0,0,0}, //waiting for SYN
 		{0,0,0,0,0}, //waiting for SYN_ACK
 		{2,3,0,2,0}, //waiting for ACK
-		{0,3,3,0,0}, //CONNECTED 
+		{3,3,3,0,0}, //CONNECTED 
 		{0,0,0,0,0}, //CLOSED
 		{0,0,0,0,0} //FIN_RECEIVED
 	};
@@ -119,6 +119,17 @@ int main(void)
 		}
 		if(state == 3)
 		{
+			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
+			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
+			uint16_t check_sum =unpack_uint16(p_tcphdr->checksum);
+			int size = received_size - 20;
+			bzero(buf, BUFLEN);
+			p_tcphdr->flags =FLAG_ACK;
+			si_other.sin_family = AF_INET;
+			si_other.sin_port = htons(src_port);
+			pack_uint16(dst_port,p_tcphdr->src_port);
+			pack_uint16(src_port,p_tcphdr->dst_port);
+			pack_uint32(seq+size,p_tcphdr->ack_num);
 			// if(flag & FLAG_FIN)
 			// {
 			// 	printf("++++++++state :%d\n",state); 
@@ -128,8 +139,8 @@ int main(void)
 			// 	si_other.sin_port = htons(src_port);
 			// 	pack_uint16(dst_port,p_tcphdr->src_port);
 			// 	pack_uint16(src_port,p_tcphdr->dst_port);
-			// 	if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-			// 		diep("sendto()");
+			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+			 	diep("sendto()");
 			// 	printf("sent FIN");
 			// 	state =0;
 			// 	continue;
