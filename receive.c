@@ -79,6 +79,9 @@ int main(void)
 				continue;
 		}	
 		tcp_header_t* tcp_header =(tcp_header_t *) buf;
+		printf("flag :%d\n",tcp_header->flags); 
+		src_port = unpack_uint16(tcp_header->src_port);
+		dst_port = unpack_uint16(tcp_header->dst_port);
 		flag = tcp_header->flags;
 		int input =0;
 		if( (flag & FLAG_SYN) && (flag & FLAG_ACK)==0) input =0;
@@ -89,6 +92,7 @@ int main(void)
 		state = states[state][input];
 		if( (flag & FLAG_FIN) && (state!=3)) 
 		{
+			printf("=========state :%d\n",state); 
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
 			pack_uint16(dst_port,p_tcphdr->src_port);
@@ -104,36 +108,37 @@ int main(void)
 		{
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
-			pack_uint16(dst_port,p_tcphdr->src_port);
-			pack_uint16(src_port,p_tcphdr->dst_port);
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
+			pack_uint16(dst_port,p_tcphdr->src_port);
+			pack_uint16(src_port,p_tcphdr->dst_port);
+			printf("++++++++++++port number%d\n", src_port);
 			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
 				diep("sendto()");
-			printf("sent SYN/ACK");
+			printf("sent SYN/ACK\n");
 		}
 		if(state == 3)
 		{
-			if(flag & FLAG_FIN)
-			{
-				bzero(buf, BUFLEN);
-				p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
-				pack_uint16(dst_port,p_tcphdr->src_port);
-				pack_uint16(src_port,p_tcphdr->dst_port);
-				si_other.sin_family = AF_INET;
-				si_other.sin_port = htons(src_port);
-				if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-					diep("sendto()");
-				printf("sent FIN");
-				state =0;
-				continue;
-			}
+			// if(flag & FLAG_FIN)
+			// {
+			// 	printf("++++++++state :%d\n",state); 
+			// 	bzero(buf, BUFLEN);
+			// 	p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
+			// 	si_other.sin_family = AF_INET;
+			// 	si_other.sin_port = htons(src_port);
+			// 	pack_uint16(dst_port,p_tcphdr->src_port);
+			// 	pack_uint16(src_port,p_tcphdr->dst_port);
+			// 	if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+			// 		diep("sendto()");
+			// 	printf("sent FIN");
+			// 	state =0;
+			// 	continue;
+			// }
 			printf("connected\n");
 		}
 		printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
-		printf("flag :%d\n",tcp_header->flags); 
-		printf("Received packet from %s:%d\nData: %s\n\n", 
-				inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
+		//printf("Received packet from %s:%d\nData: %s\n\n", 
+		//		inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
 		printf("state is %d\n",state);
 	}
 
