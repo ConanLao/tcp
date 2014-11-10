@@ -89,7 +89,7 @@ int listen_to_synack(){
 	int i;
 	for(i = 0;i<7;i++) {
 		printf("sending SYN No.%d\n", i);
-		send_udp(FLAG_SYNACK, "");
+		send_udp(FLAG_SYN, "");
 		printf("receiving SYN No.%d\n", i);
 		num = receive_udp(buf, tv, si_other);
 		printf("after\n");
