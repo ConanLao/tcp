@@ -11,6 +11,7 @@
 #define FLAG_ECE 64
 #define FLAG_CWR 128
 #define FLAG_NS 256
+#define FLAG_SYNACK 18
 
 enum socket_type { CLIENT = 0, SERVER };
 

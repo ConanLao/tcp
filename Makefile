@@ -1,12 +1,13 @@
+all: send receive
 CC = gcc
 CFLAGS = -Wall
+LFLAGS = -pthread
 INCLUDES = -I./struct.h
 
-all: send receive
 send: send.c
-	$(CC) -o $@ $(CFLAGS) $^  
+	$(CC) $(LFLAGS) -o $@ $(CFLAGS) $^  
 receive: receive.c
-	$(CC) -o $@ $(CFLAGS) $^  
+	$(CC) $(LFLAGS) -o $@ $(CFLAGS) $^  
 
 clean:
 	rm -f send receive
