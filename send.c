@@ -137,7 +137,7 @@ int sonic_connect() {
 
 int tcp_send(char* data, int len){
 	if (len == 0) {
-		return;
+		return 1;
 	}
 	printf("tcp sending data\n");
 	struct sockaddr_in si_other;
