@@ -12,12 +12,12 @@
 
 #define BUFLEN 512
 
-char* dst_ip;
-uint16_t dst_port;
-uint16_t src_port;
-int state = WAITING_FOR_SYNACK;
-int seq = 1;//should be 0 considering the handshake
-int ack = 0;
+//char* dst_ip;
+//uint16_t dst_port;
+//uint16_t src_port;
+//int state = WAITING_FOR_SYNACK;
+//int seq = 1;//should be 0 considering the handshake
+//int ack = 0;
 
 
 /* diep(), #includes and #defines like in the server */
@@ -120,7 +120,7 @@ int send_ack(){
 	struct timeval tv;
 	tv.tv_sec = 1;
 	int i;
-	for(i = 0;i<7;i++) {
+	for(i = 0;i<1;i++) {
 		printf("sending ack No.%d\n", i);
 		send_udp(FLAG_ACK, "", 0, -1);
 		sleep(1);
@@ -216,9 +216,8 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	send_ack();
-	tcp_send("1",1);
-	tcp_send("22",2);
-	tcp_send("333",3);
+	create_client();
+	return;
 	sonic_close();	
 	return 0;
 }
