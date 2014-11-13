@@ -20,6 +20,7 @@ void diep(char *s)
 
 int main(void)
 {
+	create_server();
 	uint16_t src_port;
 	uint16_t dst_port;
 	struct sockaddr_in si_me, si_other;
@@ -64,6 +65,8 @@ int main(void)
 			}
 			if(state ==2)
 			{
+				uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
+				uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
 				resend++;
 				bzero(buf, BUFLEN);
 				p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
@@ -72,8 +75,9 @@ int main(void)
 				pack_uint16(src_port,p_tcphdr->dst_port);
 				si_other.sin_family = AF_INET;
 				si_other.sin_port = htons(src_port);
-				if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-					diep("sendto()");
+				// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+				// 	diep("sendto()");
+				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,MAX_WINDOW);
 				printf("sent SYN/ACK");
 				continue;
 			}
@@ -96,6 +100,8 @@ int main(void)
 		state = states[state][input];
 		if( (flag & FLAG_FIN) && (state!=3)) 
 		{
+			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
+			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
 			p_tcphdr->window = MAX_WINDOW;
@@ -103,13 +109,17 @@ int main(void)
 			pack_uint16(src_port,p_tcphdr->dst_port);
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
-			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-				diep("sendto()");
+			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+			// 	diep("sendto()");
+			// data, length,flag, seq, ack, window
+			add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,seq, ack,MAX_WINDOW);
 			printf("sent FIN");
 			continue;
 		}
 		if(state == 2)
 		{
+			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
+			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
 			p_tcphdr->window = MAX_WINDOW;
@@ -117,8 +127,9 @@ int main(void)
 			si_other.sin_port = htons(src_port);
 			pack_uint16(dst_port,p_tcphdr->src_port);
 			pack_uint16(src_port,p_tcphdr->dst_port);
-			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-				diep("sendto()");
+			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+			// 	diep("sendto()");
+			add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,MAX_WINDOW);
 			printf("sent SYN/ACK\n");
 		}
 		if(state == 3)
@@ -135,8 +146,9 @@ int main(void)
 			pack_uint16(dst_port,p_tcphdr->src_port);
 			pack_uint16(src_port,p_tcphdr->dst_port);
 			pack_uint32(seq+size,p_tcphdr->ack_num);
-			if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-			 	diep("sendto()");
+			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
+			//  	diep("sendto()");
+			dd_send_task("", 0 , FLAG_ACK ,seq, ack,MAX_WINDOW);
 			printf("connected\n");
 		}
 		printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
