@@ -199,3 +199,14 @@ int create_client(){
 		add_send_task("0123456789", 10 , i,i, i, i);
 	}
 }
+int create_server()
+{
+	( &sender_sema, 0,0);
+	sem_init( &list_sema, 0,1);
+	INIT_LIST_HEAD(&mylist.list);
+	pthread_t send_thread;
+	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
+		fprintf(stderr, "Error in creating thread\n");
+		return;
+	}
+}
