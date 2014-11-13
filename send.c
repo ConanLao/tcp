@@ -68,7 +68,7 @@ int send_udp(int type, char* data, int len, long seq) {
 	p_tcphdr->flags = type;
 	pack_uint32(seq, p_tcphdr->seq_num);
 
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1) //dont have to open the socket again
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		diep("socket");
 
 	memset((char *) &si_other, 0, sizeof(si_other));
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	send_ack();
-	create_client();
+	//create_client();
 	return;
 	sonic_close();	
 	return 0;
