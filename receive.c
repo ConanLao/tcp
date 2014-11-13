@@ -10,7 +10,7 @@
 #define BUFLEN 512
 #define NPACK 10
 #define PORT 5000
-#define MAX_WINDOW 65536 //2^16
+#define MAX_WINDOW 65535 //2^16
 
 void diep(char *s)
 {
@@ -69,8 +69,8 @@ int main(void)
 				uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
 				resend++;
 				bzero(buf, BUFLEN);
-				p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
-				p_tcphdr->window = MAX_WINDOW;
+				//p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
+				//p_tcphdr->window = MAX_WINDOW;
 				pack_uint16(dst_port,p_tcphdr->src_port);
 				pack_uint16(src_port,p_tcphdr->dst_port);
 				si_other.sin_family = AF_INET;
@@ -103,8 +103,8 @@ int main(void)
 			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
 			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
 			bzero(buf, BUFLEN);
-			p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
-			p_tcphdr->window = MAX_WINDOW;
+			//p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
+			//p_tcphdr->window = MAX_WINDOW;
 			pack_uint16(dst_port,p_tcphdr->src_port);
 			pack_uint16(src_port,p_tcphdr->dst_port);
 			si_other.sin_family = AF_INET;
@@ -121,8 +121,8 @@ int main(void)
 			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
 			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
 			bzero(buf, BUFLEN);
-			p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
-			p_tcphdr->window = MAX_WINDOW;
+			//p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
+			//p_tcphdr->window = MAX_WINDOW;
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
 			pack_uint16(dst_port,p_tcphdr->src_port);
@@ -140,7 +140,7 @@ int main(void)
 			int size = received_size - 20;
 			bzero(buf, BUFLEN);
 			p_tcphdr->flags =FLAG_ACK;
-			p_tcphdr->window = MAX_WINDOW;
+			//p_tcphdr->window = MAX_WINDOW;
 			si_other.sin_family = AF_INET;
 			si_other.sin_port = htons(src_port);
 			pack_uint16(dst_port,p_tcphdr->src_port);
@@ -148,7 +148,7 @@ int main(void)
 			pack_uint32(seq+size,p_tcphdr->ack_num);
 			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
 			//  	diep("sendto()");
-			dd_send_task("", 0 , FLAG_ACK ,seq, ack,MAX_WINDOW);
+			add_send_task("", 0 , FLAG_ACK ,seq, ack,MAX_WINDOW);
 			printf("connected\n");
 		}
 		printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
