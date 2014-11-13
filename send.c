@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 	}
 	send_ack();
 	create_client();
-	return;
+	return 0;
 	sonic_close();	
 	return 0;
 }

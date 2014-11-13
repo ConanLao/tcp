@@ -192,7 +192,7 @@ int create_client(){
 	pthread_t send_thread;
 	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
-		return;
+		return 0;
 	}
 	//add_send_task("",)
 /**
@@ -210,6 +210,6 @@ int create_server()
 	pthread_t send_thread;
 	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
-		return;
+		return 0;
 	}
 }

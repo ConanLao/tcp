@@ -21,11 +21,9 @@ void diep(char *s)
 int main(void)
 {
 	create_server();
-	uint16_t src_port;
-	uint16_t dst_port;
-	struct sockaddr_in si_me, si_other;
+	struct sockaddr_in si_me;// si_me;
 	struct timeval tv;
-	int s, i, slen=sizeof(si_other);
+	int s, i, slen=sizeof(si_me);
 	char buf[BUFLEN];
 	int flag; 
 	int states[6][6] =
@@ -37,7 +35,7 @@ int main(void)
 		{0,0,0,0,0}, //CLOSED
 		{0,0,0,0,0} //FIN_RECEIVED
 	};
-	int state = 0;
+	state = 0;
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		diep("socket");
@@ -54,7 +52,7 @@ int main(void)
 	while(1)
 	{	
 		int received_size =0;
-		if ( (received_size =recvfrom(s, buf, BUFLEN, 0, &si_other, &slen))<0)
+		if ( (received_size =recvfrom(s, buf, BUFLEN, 0, &si_me, &slen))<0)
 		{
 			if(resend >7) 
 			{
@@ -65,19 +63,11 @@ int main(void)
 			}
 			if(state ==2)
 			{
-				uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
-				uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
+				seq = unpack_uint32(p_tcphdr->seq_num);
+				ack = unpack_uint32(p_tcphdr->ack_num);
 				resend++;
-				bzero(buf, BUFLEN);
-				//p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
-				//p_tcphdr->window = MAX_WINDOW;
-				pack_uint16(dst_port,p_tcphdr->src_port);
-				pack_uint16(src_port,p_tcphdr->dst_port);
-				si_other.sin_family = AF_INET;
-				si_other.sin_port = htons(src_port);
-				// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-				// 	diep("sendto()");
-				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,MAX_WINDOW);
+				int size = received_size - 20;
+				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,0, seq+size,MAX_WINDOW);
 				printf("sent SYN/ACK");
 				continue;
 			}
@@ -86,7 +76,7 @@ int main(void)
 		}	
 		tcp_header_t* tcp_header =(tcp_header_t *) buf;
 		printf("Received packet from %s:%d\nData: %s\n\n", 
-				inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), (char*)tcp_header->options_and_data);
+				inet_ntoa(si_me.sin_addr), ntohs(si_me.sin_port), (char*)tcp_header->options_and_data);
 		printf("flag :%d\n",tcp_header->flags); 
 		src_port = unpack_uint16(tcp_header->src_port);
 		dst_port = unpack_uint16(tcp_header->dst_port);
@@ -100,55 +90,30 @@ int main(void)
 		state = states[state][input];
 		if( (flag & FLAG_FIN) && (state!=3)) 
 		{
-			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
-			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
-			bzero(buf, BUFLEN);
-			//p_tcphdr->flags = FLAG_FIN | FLAG_ACK;
-			//p_tcphdr->window = MAX_WINDOW;
-			pack_uint16(dst_port,p_tcphdr->src_port);
-			pack_uint16(src_port,p_tcphdr->dst_port);
-			si_other.sin_family = AF_INET;
-			si_other.sin_port = htons(src_port);
-			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-			// 	diep("sendto()");
-			// data, length,flag, seq, ack, window
-			add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,seq, ack,MAX_WINDOW);
+			seq = unpack_uint32(p_tcphdr->seq_num);
+			ack = unpack_uint32(p_tcphdr->ack_num);
+			int size = received_size - 20;
+			add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,0, seq+size,MAX_WINDOW);
 			printf("sent FIN");
 			continue;
 		}
 		if(state == 2)
 		{
-			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
-			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
-			bzero(buf, BUFLEN);
-			//p_tcphdr->flags = FLAG_SYN | FLAG_ACK;
-			//p_tcphdr->window = MAX_WINDOW;
-			si_other.sin_family = AF_INET;
-			si_other.sin_port = htons(src_port);
-			pack_uint16(dst_port,p_tcphdr->src_port);
-			pack_uint16(src_port,p_tcphdr->dst_port);
-			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-			// 	diep("sendto()");
-			add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,MAX_WINDOW);
+			seq = unpack_uint32(p_tcphdr->seq_num);
+			ack = unpack_uint32(p_tcphdr->ack_num);
+			int size = received_size - 20;
+			add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,0, seq+size,MAX_WINDOW);
 			printf("sent SYN/ACK\n");
 		}
 		if(state == 3)
 		{
-			uint32_t seq = unpack_uint32(p_tcphdr->seq_num);
-			uint32_t ack = unpack_uint32(p_tcphdr->ack_num);
+			seq = unpack_uint32(p_tcphdr->seq_num);
+			ack = unpack_uint32(p_tcphdr->ack_num);
 			uint16_t check_sum =unpack_uint16(p_tcphdr->checksum);
 			int size = received_size - 20;
-			bzero(buf, BUFLEN);
-			p_tcphdr->flags =FLAG_ACK;
-			//p_tcphdr->window = MAX_WINDOW;
-			si_other.sin_family = AF_INET;
-			si_other.sin_port = htons(src_port);
-			pack_uint16(dst_port,p_tcphdr->src_port);
-			pack_uint16(src_port,p_tcphdr->dst_port);
-			pack_uint32(seq+size,p_tcphdr->ack_num);
-			// if (sendto(s, (char*)p_tcphdr, BUFLEN, 0, &si_other, slen)==-1)
-			//  	diep("sendto()");
-			add_send_task("", 0 , FLAG_ACK ,seq, ack,MAX_WINDOW);
+			si_me.sin_family = AF_INET;
+			si_me.sin_port = htons(src_port);
+			add_send_task("", 0 , FLAG_ACK ,0, seq+size,MAX_WINDOW);
 			printf("connected\n");
 		}
 		printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
