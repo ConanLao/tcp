@@ -86,8 +86,8 @@ char* dst_ip;
 uint16_t dst_port;
 uint16_t src_port;
 int state;
-int seq;
-int ack;
+uint32_t seq;
+uint32_t ack;
 struct send_list mylist;
 sem_t sender_sema;
 sem_t list_sema;
@@ -194,8 +194,11 @@ int create_client(){
 		fprintf(stderr, "Error in creating thread\n");
 		return;
 	}
+	//add_send_task("",)
+/**
 	int i =0;
 	for(i = 0; i<256;i++){
 		add_send_task("0123456789", 10 , i,i, i, i);
 	}
+*/
 }
