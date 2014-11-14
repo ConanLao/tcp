@@ -181,7 +181,6 @@ void *thread_send(void *arg){
 	printf("send thread started\n");
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
-	dst_port =1000;
 	printf("here+++++\n");
 	si_other.sin_port = htons(dst_port);
 	
@@ -211,7 +210,8 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	src_port = s_port;
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
-
+	printf("dst_port:%d\n",dst_port );
+	printf("src_port:%d\n",src_port );
 
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1);//diep("socket");
 	
@@ -273,10 +273,8 @@ int create_server()
 	dst_port = 1000;
 	src_port = 2000;
 	printf("%d\n",sem_init( &sender_sema, 0,0));
-	sem_init( &list_sema, 0,1);
-	int *t;
-	sem_getvalue(&sender_sema, t);
-	printf("!!!!!!!!!%d\n",*t );
+	printf ("%d\n",sem_init( &list_sema, 0,1));
+	
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		printf("socket");
 	memset((char *) &si_me, 0, sizeof(si_me));
