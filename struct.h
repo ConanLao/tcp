@@ -181,12 +181,21 @@ void *thread_send(void *arg){
 	printf("send thread started\n");
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
+	dst_port =1000;
+	printf("here+++++\n");
 	si_other.sin_port = htons(dst_port);
-	if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
-		printf("[error] inet_aton() failed\n");
+	
+	 if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
+	 	printf("[error] inet_aton() failed\n");
 	}
+	
+
 	while(1){
-		sem_wait( &sender_sema );
+		printf("here=======\n");
+		int *t;
+		sem_getvalue(&sender_sema, t);
+		printf("@@@@@@@@@@%d\n",*t );
+		sem_wait( &sender_sema ); 
 		sem_wait( &list_sema );	
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
 		//send_tcp(sock_fd, si_other, len, data, flags, seq, ack);
@@ -204,16 +213,14 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	sem_init( &list_sema, 0,1);
 
 
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
-		diep("socket");
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1);//diep("socket");
 	
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(src_port);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(s, &si_me, sizeof(si_me))==-1)
-		diep("bind");
+	if (bind(s, &si_me, sizeof(si_me))==-1);//diep("bind");
 
 	printf("a\n");
 	struct timeval tv;
@@ -262,20 +269,22 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 }
 int create_server()
 {
-	dst_ip = d_ip;
-	dst_port = d_port;
-	src_port = s_port;
-	sem_init( &sender_sema, 0,0);
+	dst_ip = "127.0.0.1";
+	dst_port = 1000;
+	src_port = 2000;
+	printf("%d\n",sem_init( &sender_sema, 0,0));
 	sem_init( &list_sema, 0,1);
-
-	if ((fd_me=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+	int *t;
+	sem_getvalue(&sender_sema, t);
+	printf("!!!!!!!!!%d\n",*t );
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		printf("socket");
-	
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(PORT);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
+	if (bind(s, &si_me, sizeof(si_me))==-1)
+	{
 		printf("bind");
 	}
 	INIT_LIST_HEAD(&mylist.list);
@@ -286,4 +295,5 @@ int create_server()
 		return 0;
 	}
 	printf("d\n");
+	return 0;
 }
