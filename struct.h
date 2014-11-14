@@ -161,9 +161,9 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
 
-int udp_receive(char* buf, struct sockaddr_in *si_other){
+int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
-	int num = recvfrom(s, buf, BUF_LEN, 0, si_other, &slen);
+	int num = recvfrom(s, buf, BUF_LEN, 0, &si_other, &slen);
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -180,17 +180,18 @@ void *thread_send(void *arg){
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
 	si_other.sin_port = htons(dst_port);
-	
-	 if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
-	 	printf("[error] inet_aton() failed\n");
+
+	if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
+		printf("[error] inet_aton() failed\n");
 	}
-	
+
 
 	while(1){
 		sem_wait( &sender_sema ); 
 		sem_wait( &list_sema );	
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
 		//send_tcp(sock_fd, si_other, len, data, flags, seq, ack);
+		printf("TCP: flag = %d\n", tmp->flags);
 		send_tcp(tmp->data, tmp->len, tmp->flags, tmp->seq, tmp->ack, tmp->window);
 		list_del(mylist.list.next);
 		sem_post( &list_sema );	
@@ -207,13 +208,14 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	printf("src_port:%d\n",src_port );
 
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1);//diep("socket");
-	
+
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(src_port);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(s, &si_me, sizeof(si_me))==-1);//diep("bind");
+	if (bind(s, &si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
+
 
 	printf("a\n");
 	struct timeval tv;
@@ -231,15 +233,17 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	}
 	printf("d\n");
 
+	struct sockaddr_in si_dum;
 	char buf[BUF_LEN];
 	int i, num;
 	for(i = 0;i<7;i++) {
 		printf("sending SYN No.%d\n", i);
 		add_send_task("",0,FLAG_SYN, seq, ack, window);
 		printf("receiving SYNACK No.%d\n", i);
-		num = udp_receive(buf, NULL);
-		printf("after\n");
-		if (num >= sizeof(tcp_header_t)) {
+		num = udp_receive(buf, si_dum);
+		printf("num = %d\n, size =%d\n", num, sizeof(tcp_header_t));
+		printf("bool = %d\n", num >= 20);
+		if (num >= 20 ) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
 			printf("flag synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
 			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
@@ -253,20 +257,52 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 		}
 	}
 
-	printf("end of syn\n");
-	for(i = 0; i<256;i++){
-		add_send_task("0123456789", 10 , i,i, i, i);
+	for(i = 0;i<7;i++) {
+		printf("sending ACK(SYN) No.%d\n", i);
+		add_send_task("",0,FLAG_ACK, 1, 0, window);//ack may not be 0
+		printf("receiving ACK No.%d\n", i);
+		udp_receive(buf, si_dum);
 	}
+
+	printf("end of syn\n");
+	
+	for(i = 0; i<256;i++){
+		printf("i=%d\n",i);
+		add_send_task("0123456789", 10 , 0,i, i, i);
+		udp_receive(buf, si_dum);
+	}
+	for(i = 0;i<7;i++) {
+		printf("sending FIN No.%d\n", i);
+		add_send_task("",0,FLAG_FIN, seq, ack, window);
+		printf("receiving FINACK No.%d\n", i);
+		num = udp_receive(buf, si_dum);
+		printf("num = %d\n, size =%d\n", num, sizeof(tcp_header_t));
+		printf("bool = %d\n", num >= 20);
+		if (num >= 20 ) {
+			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			printf("flag finack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
+			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
+			if (src_port == unpack_uint16(tcp_header->dst_port)
+					&& dst_port == unpack_uint16(tcp_header->src_port)
+					&& tcp_header->flags == FLAG_FINACK){//need to check the ip is the server or not
+				state = CLOSED;
+				break;
+			}
+		}
+	}
+
+
 
 }
 int create_server()
 {
 	dst_ip = "127.0.0.1";
-	dst_port = 1000;
-	src_port = 2000;
+	dst_port = 3000;
+	src_port = 5000;
 	printf("%d\n",sem_init( &sender_sema, 0,0));
 	printf ("%d\n",sem_init( &list_sema, 0,1));
-	
+
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		printf("socket");
 	memset((char *) &si_me, 0, sizeof(si_me));

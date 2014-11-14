@@ -72,8 +72,8 @@ int main(void)
 		printf("Received packet from %s:%d\nData: %s\n\n", 
 				inet_ntoa(si_me.sin_addr), ntohs(si_me.sin_port), (char*)tcp_header->options_and_data);
 		printf("flag :%d\n",tcp_header->flags); 
-		src_port = unpack_uint16(tcp_header->src_port);
-		dst_port = unpack_uint16(tcp_header->dst_port);
+		src_port = unpack_uint16(tcp_header->dst_port);
+		dst_port = unpack_uint16(tcp_header->src_port);
 		flag = tcp_header->flags;
 		int input =0;
 		if( (flag & FLAG_SYN) && (flag & FLAG_ACK)==0) input =0;
