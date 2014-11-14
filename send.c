@@ -201,25 +201,18 @@ int sonic_close(){
 
 int main(int argc, char *argv[])
 {
-	if(argc != 5)
-	{
-		printf("- Invalid parameters!!!\n");
-		printf("- Usage %s <source hostname/IP> <source port> <target hostname/IP> <target port>\n", argv[0]);
-		exit(-1);
-	}
-	dst_ip = argv[3];
-	src_port = atoi(argv[2]);
-	dst_port = atoi(argv[4]);
-	printf("Using Source IP: %s port: %u, Target IP: %s port: %u.\n", argv[1], atoi(argv[2]), argv[3], atoi(argv[4]));
-	int result = sonic_connect();	
-	if (!result) {
-		return 0;
-	}
-
-	send_ack();
-
-	//create_client();
-	//return 0;
+	//int result = sonic_connect();	
+	//if (!result) {
+//		return 0;
+//	}
+	//send_ack();
+	
+	
+	
+	
+	
+	create_client("127.0.0.1", 5000, 3000);
+	return 0;
 
 	sonic_close();	
 	return 0;
