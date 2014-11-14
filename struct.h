@@ -209,14 +209,14 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	sem_init( &list_sema, 0,1);
 
 	if ((fd_me=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
-		diep("socket");
+		printf("socket");
 	
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(src_port);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
-		diep("bind");
+		printf("bind");
 	printf("a\n");
 	struct timeval tv;
 	tv.tv_sec = 1;
@@ -229,7 +229,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	printf("c\n");
 	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
-		return;
+		return 0;
 	}
 	printf("d\n");
 /**
