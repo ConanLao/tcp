@@ -217,13 +217,8 @@ int main(int argc, char *argv[])
 	}
 
 	send_ack();
-<<<<<<< HEAD
-	create_client();
-	return 0;
-=======
 	//create_client();
-	return;
->>>>>>> 44eff39376cd9a2c2c2585ebc5faea39915721c9
+	return 0;
 	sonic_close();	
 	return 0;
 }

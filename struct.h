@@ -163,10 +163,8 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
 
-int udp_receive(char* buf){
+int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
-	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
-		diep("bind");
 	int num = recvfrom(fd_me, buf, BUF_LEN, 0, &si_other, &slen);
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
@@ -200,16 +198,14 @@ void *thread_send(void *arg){
 		sem_post( &list_sema );	
 	}
 }
-
 /**
-
 int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
 
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		diep("socket");
-
+	
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(src_port);
@@ -226,13 +222,14 @@ int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 	pthread_t send_thread;
 	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
-		return 0;
+		return;
 	}
+	char buf[BUF_LEN];
 	for(i = 0;i<7;i++) {
 		printf("sending SYN No.%d\n", i);
 		add_send_task("",0,FLAG_SYN, seq, ack, window);
 		printf("receiving SYNACK No.%d\n", i);
-		num = receive_udp(buf, tv, si_other);
+		num = udp_receive(buf);
 		printf("after\n");
 		if (num >= sizeof(tcp_header_t)) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
@@ -253,21 +250,5 @@ int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 	for(i = 0; i<256;i++){
 		add_send_task("0123456789", 10 , i,i, i, i);
 	}
-<<<<<<< HEAD
-*/
-}
-int create_server()
-{
-	( &sender_sema, 0,0);
-	sem_init( &list_sema, 0,1);
-	INIT_LIST_HEAD(&mylist.list);
-	pthread_t send_thread;
-	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
-		fprintf(stderr, "Error in creating thread\n");
-		return 0;
-	}
-}
-=======
 
 }*/
->>>>>>> 44eff39376cd9a2c2c2585ebc5faea39915721c9
