@@ -179,6 +179,7 @@ int udp_receive(char* buf, struct sockaddr_in si_other){
 
 void *thread_send(void *arg){
 	printf("send thread started\n");
+	/**
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
 	si_other.sin_port = htons(dst_port);
@@ -197,13 +198,17 @@ void *thread_send(void *arg){
 		list_del(mylist.list.next);
 		sem_post( &list_sema );	
 	}
+`	*/
 }
-/**
-int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
+
+int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
+	dst_ip = d_ip;
+	dst_port = d_port;
+	src_port = s_port;
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
 
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+	if ((fd_me=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		diep("socket");
 	
 	memset((char *) &si_me, 0, sizeof(si_me));
@@ -212,18 +217,22 @@ int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
 		diep("bind");
-
+	printf("a\n");
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
+	setsockopt(fd_me, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
+	printf("b\n");
 
 	INIT_LIST_HEAD(&mylist.list);
 	pthread_t send_thread;
-	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
+	printf("c\n");
+	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
 		return;
 	}
+	printf("d\n");
+/**
 	char buf[BUF_LEN];
 	for(i = 0;i<7;i++) {
 		printf("sending SYN No.%d\n", i);
@@ -245,10 +254,22 @@ int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 		}
 	}
 
+*/
 
 	int i =0;
 	for(i = 0; i<256;i++){
 		add_send_task("0123456789", 10 , i,i, i, i);
 	}
 
-}*/
+}
+int create_server()
+{
+	( &sender_sema, 0,0);
+	sem_init( &list_sema, 0,1);
+	INIT_LIST_HEAD(&mylist.list);
+	pthread_t send_thread;
+	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
+		fprintf(stderr, "Error in creating thread\n");
+		return 0;
+	}
+}
