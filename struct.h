@@ -231,9 +231,7 @@ int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 	for(i = 0; i<256;i++){
 		add_send_task("0123456789", 10 , i,i, i, i);
 	}
-<<<<<<< HEAD
-*/
-}
+}*/
 int create_server()
 {
 	( &sender_sema, 0,0);
@@ -245,7 +243,3 @@ int create_server()
 		return 0;
 	}
 }
-=======
-
-}*/
->>>>>>> 44eff39376cd9a2c2c2585ebc5faea39915721c9
