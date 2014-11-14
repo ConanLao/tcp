@@ -90,9 +90,8 @@ uint32_t seq;
 uint32_t ack;
 uint16_t window = 1;
 struct sockaddr_in si_me;
-int fd_me;
 struct sockaddr_in si_other;
-int fd_other;
+int s;
 struct send_list mylist;
 sem_t sender_sema;
 sem_t list_sema;
@@ -145,7 +144,7 @@ int udp_send(char* data, int len) {
 	bzero(buf, len);
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
 	memcpy(buf, data, len);
-	if (sendto(fd_other, (char*)buf, len, 0, &si_other, slen)==-1)
+	if (sendto(s, (char*)buf, len, 0, &si_other, slen)==-1)
 		printf("[error] sendto()");
 	return 1;
 }
@@ -165,7 +164,7 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 
 int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
-	int num = recvfrom(fd_me, buf, BUF_LEN, 0, &si_other, &slen);
+	int num = recvfrom(s, buf, BUF_LEN, 0, &si_other, &slen);
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -185,8 +184,6 @@ void *thread_send(void *arg){
 	if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
 		printf("[error] inet_aton() failed\n");
 	}
-	if ((fd_other=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
-		printf("[error] socket");
 
 	while(1){
 		sem_wait( &sender_sema );
@@ -206,20 +203,20 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
 
-	if ((fd_me=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		diep("socket");
 	
 	memset((char *) &si_me, 0, sizeof(si_me));
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(src_port);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
+	if (bind(s, &si_me, sizeof(si_me))==-1)
 		diep("bind");
 	printf("a\n");
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
-	setsockopt(fd_me, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
 	printf("b\n");
 
 	INIT_LIST_HEAD(&mylist.list);
