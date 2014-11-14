@@ -179,7 +179,6 @@ int udp_receive(char* buf, struct sockaddr_in si_other){
 
 void *thread_send(void *arg){
 	printf("send thread started\n");
-	/**
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
 	si_other.sin_port = htons(dst_port);
@@ -198,7 +197,6 @@ void *thread_send(void *arg){
 		list_del(mylist.list.next);
 		sem_post( &list_sema );	
 	}
-`	*/
 }
 
 int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
