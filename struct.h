@@ -262,12 +262,28 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 }
 int create_server()
 {
-	( &sender_sema, 0,0);
+	dst_ip = d_ip;
+	dst_port = d_port;
+	src_port = s_port;
+	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
+
+	if ((fd_me=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+		printf("socket");
+	
+	memset((char *) &si_me, 0, sizeof(si_me));
+	si_me.sin_family = AF_INET;
+	si_me.sin_port = htons(src_port);
+	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
+		printf("bind");
+	}
 	INIT_LIST_HEAD(&mylist.list);
 	pthread_t send_thread;
-	if(pthread_create( send_thread, NULL, thread_send, NULL) ){
+	printf("c\n");
+	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
 		return 0;
 	}
+	printf("d\n");
 }

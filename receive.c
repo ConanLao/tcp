@@ -21,9 +21,6 @@ void diep(char *s)
 int main(void)
 {
 	create_server();
-	struct sockaddr_in si_me;// si_me;
-	struct timeval tv;
-	int s, i, slen=sizeof(si_me);
 	char buf[BUFLEN];
 	int flag; 
 	int states[6][6] =
@@ -37,15 +34,9 @@ int main(void)
 	};
 	state = 0;
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
-		diep("socket");
 
 	memset((char *) &si_me, 0, sizeof(si_me));
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(PORT);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(s, &si_me, sizeof(si_me))==-1)
-		diep("bind");
+	
 	tv.tv_sec = 1;
 	int resend = 0;
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
