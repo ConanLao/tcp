@@ -3,7 +3,7 @@
 #include <pthread.h>
 
 // The packet length
-#define PCKT_LEN 8192
+#define BUF_LEN 1600 //MTU of ehternet is 1500 bytes 
 
 //TCP flags
 #define FLAG_DATA 0
@@ -162,6 +162,23 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	memcpy(p_tcphdr->options_and_data, data, len);
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
+
+int udp_receive(char* buf){
+	int slen=sizeof(si_other);
+	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
+		diep("bind");
+	int num = recvfrom(fd_me, buf, BUF_LEN, 0, &si_other, &slen);
+	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
+	//src_port = unpack_uint16(tcp_header->src_port);
+	//dst_port = unpack_uint16(tcp_header->dst_port);
+	//printf("src_port :%d\n dst_port:%d\n\n",src_port,dst_port); 
+	//printf("flag :%d\n",tcp_header->flags); 
+	//printf("Received packet from %s:%d\nData: %s\n\n", 
+	//              inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
+	return num;
+}
+
+
 void *thread_send(void *arg){
 	printf("send thread started\n");
 	memset((char *) &si_other, 0, sizeof(si_other));
@@ -173,7 +190,7 @@ void *thread_send(void *arg){
 	if ((fd_other=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		printf("[error] socket");
 
-		while(1){
+	while(1){
 		sem_wait( &sender_sema );
 		sem_wait( &list_sema );	
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
@@ -183,22 +200,27 @@ void *thread_send(void *arg){
 		sem_post( &list_sema );	
 	}
 }
+
 /**
+
 int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
+
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+		diep("socket");
+
 	memset((char *) &si_me, 0, sizeof(si_me));
-        si_me.sin_family = AF_INET;
-        si_me.sin_port = htons(src_port);
-        si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-        if (bind(fd_me, &si_me, sizeof(si_me))==-1)
-                diep("bind");
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
-        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
-        printf("a\n");
-        int num = recvfrom(s, buf, BUFLEN, 0, &si_other, &slen);
-        printf("a\n");
+	si_me.sin_family = AF_INET;
+	si_me.sin_port = htons(src_port);
+	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (bind(fd_me, &si_me, sizeof(si_me))==-1)
+		diep("bind");
+
+	struct timeval tv;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
 
 	INIT_LIST_HEAD(&mylist.list);
 	pthread_t send_thread;
@@ -207,25 +229,25 @@ int create_client(char* dst_ip, uint16_t dst_port, uint16_t src_port){
 		return 0;
 	}
 	for(i = 0;i<7;i++) {
-                printf("sending SYN No.%d\n", i);
+		printf("sending SYN No.%d\n", i);
 		add_send_task("",0,FLAG_SYN, seq, ack, window);
-                printf("receiving SYNACK No.%d\n", i);
-                num = receive_udp(buf, tv, si_other);
-                printf("after\n");
-                if (num >= sizeof(tcp_header_t)) {
-                        tcp_header_t* tcp_header =(tcp_header_t *) buf;
-                        printf("synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
-                        printf("src = %d\n", unpack_uint16(tcp_header->src_port));
-                        printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
-                        if (src_port == unpack_uint16(tcp_header->dst_port)
-                                        && dst_port == unpack_uint16(tcp_header->src_port)
-                                        && tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
-                                state = CONNECTED;
-                                return 1;
-                        }
-                }
-        }
-	
+		printf("receiving SYNACK No.%d\n", i);
+		num = receive_udp(buf, tv, si_other);
+		printf("after\n");
+		if (num >= sizeof(tcp_header_t)) {
+			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			printf("synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
+			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
+			if (src_port == unpack_uint16(tcp_header->dst_port)
+					&& dst_port == unpack_uint16(tcp_header->src_port)
+					&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
+				state = CONNECTED;
+				return 1;
+			}
+		}
+	}
+
 
 	int i =0;
 	for(i = 0; i<256;i++){
