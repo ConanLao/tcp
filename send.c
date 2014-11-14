@@ -201,17 +201,18 @@ int sonic_close(){
 
 int main(int argc, char *argv[])
 {
-	//int result = sonic_connect();	
-	//if (!result) {
+//	dst_ip = "127.0.0.1";
+//	dst_port = 5000;
+//	src_port = 3000;
+//	int result = sonic_connect();	
+//	if (!result) {
 //		return 0;
-//	}
+	//}
 	//send_ack();
 	
 	
-	
 	create_client("127.0.0.1", 5000, 3000);
-	return 0;
-
+	while(1);
 	sonic_close();	
 	return 0;
 }

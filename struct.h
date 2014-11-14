@@ -122,7 +122,6 @@ uint32_t unpack_uint32(const uint8_t* buf) {
 
 
 int add_send_task(char* data, int len, uint8_t flags, uint32_t seq, uint32_t ack, uint16_t window){
-	printf("add begin\n");
 	struct send_list *tmp;
 	tmp= (struct send_list *)malloc(sizeof(struct send_list));
 	tmp->data = data;
@@ -135,7 +134,6 @@ int add_send_task(char* data, int len, uint8_t flags, uint32_t seq, uint32_t ack
 	list_add_tail(&(tmp->list), &(mylist.list));
 	sem_post( &list_sema);
 	sem_post( &sender_sema);
-	printf("add end\n");
 }
 
 //int len is the length of the udp payload
@@ -163,9 +161,9 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
 
-int udp_receive(char* buf, struct sockaddr_in si_other){
+int udp_receive(char* buf, struct sockaddr_in *si_other){
 	int slen=sizeof(si_other);
-	int num = recvfrom(s, buf, BUF_LEN, 0, &si_other, &slen);
+	int num = recvfrom(s, buf, BUF_LEN, 0, si_other, &slen);
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -181,7 +179,6 @@ void *thread_send(void *arg){
 	printf("send thread started\n");
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
-	printf("here+++++\n");
 	si_other.sin_port = htons(dst_port);
 	
 	 if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
@@ -190,10 +187,6 @@ void *thread_send(void *arg){
 	
 
 	while(1){
-		printf("here=======\n");
-		int *t;
-		sem_getvalue(&sender_sema, t);
-		printf("@@@@@@@@@@%d\n",*t );
 		sem_wait( &sender_sema ); 
 		sem_wait( &list_sema );	
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
@@ -237,31 +230,30 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 		return 0;
 	}
 	printf("d\n");
-/**
+
 	char buf[BUF_LEN];
+	int i, num;
 	for(i = 0;i<7;i++) {
 		printf("sending SYN No.%d\n", i);
 		add_send_task("",0,FLAG_SYN, seq, ack, window);
 		printf("receiving SYNACK No.%d\n", i);
-		num = udp_receive(buf);
+		num = udp_receive(buf, NULL);
 		printf("after\n");
 		if (num >= sizeof(tcp_header_t)) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
-			printf("synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
+			printf("flag synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
 			printf("src = %d\n", unpack_uint16(tcp_header->src_port));
 			printf("dst = %d\n", unpack_uint16(tcp_header->dst_port));
 			if (src_port == unpack_uint16(tcp_header->dst_port)
 					&& dst_port == unpack_uint16(tcp_header->src_port)
 					&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
 				state = CONNECTED;
-				return 1;
+				break;
 			}
 		}
 	}
 
-*/
-
-	int i =0;
+	printf("end of syn\n");
 	for(i = 0; i<256;i++){
 		add_send_task("0123456789", 10 , i,i, i, i);
 	}
