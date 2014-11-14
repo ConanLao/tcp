@@ -21,9 +21,9 @@
 
 
 /* diep(), #includes and #defines like in the server */
-void diep(char *s)
+void diep(char *s_)
 {
-	perror(s);
+	perror(s_);
 	exit(1);
 }
 

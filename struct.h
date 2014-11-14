@@ -184,9 +184,9 @@ void *thread_send(void *arg){
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
 	si_other.sin_port = htons(dst_port);
-	if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
-		printf("[error] inet_aton() failed\n");
-	}
+	//if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
+	//	printf("[error] inet_aton() failed\n");
+	//}
 	if ((fd_other=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		printf("[error] socket");
 
