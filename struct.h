@@ -20,7 +20,7 @@
 #define FLAG_FINACK 17
 #define PORT 5000
 
-
+#define RECEIVE_BUF_SIZE 1024 * 1024 * 32 // 32 mb
 enum socket_type { CLIENT = 0, SERVER };
 
 enum socket_state {
@@ -103,6 +103,10 @@ struct send_list mylist;
 sem_t sender_sema;
 sem_t list_sema;
 
+char* receive_buf;
+unsigned int buf_s = 0;//first available position
+unsigned int buf_len = 0;
+
 void pack_uint16(uint16_t val, uint8_t* buf) {
 	val = htons(val);
 	memcpy(buf, &val, sizeof(uint16_t));
@@ -125,7 +129,66 @@ uint32_t unpack_uint32(const uint8_t* buf) {
 	return ntohl(val);
 }
 
+int copy_to_buf(char* data, int len) {
+	int a = 0;
+	int b = 0;
+	int start = 0;
+	if ( (buf_s + buf_len) < RECEIVE_BUF_SIZE) {
+		if ( (RECEIVE_BUF_SIZE - buf_s - buf_len) > len) {
+			memcpy(receive_buf+buf_s+buf_len, data, len);
+			buf_len += len;
+			return len;
+		} else {
+			a = RECEIVE_BUF_SIZE - buf_s - buf_len;
+			memcpy(receive_buf+buf_s+buf_len, data, a);
+			b = len - a;
+			memcpy(receive_buf, data + a, b);
+			buf_len +=len;
+			return len;
+		} 
+	} else {
+		start = buf_s + buf_len - RECEIVE_BUF_SIZE;
+		memcpy(receive_buf + start, data, len );
+		buf_len += len;
+		return len;
+	}
+}
 
+int read_from_buf(char* dst, int len) {
+	int a = 0;
+	int b = 0;
+	int read_len = 0;
+
+	if (buf_len <= len) {
+		read_len = buf_len;
+	} else {
+		read_len = len;
+	}
+
+	if ((buf_s + buf_len) <= RECEIVE_BUF_SIZE) {
+		memcpy(dst, receive_buf+buf_s, read_len);
+		buf_s += read_len;
+		buf_len -= read_len;
+		return read_len;
+	} else {
+		if ((RECEIVE_BUF_SIZE - buf_s)>=read_len ){
+			memcpy(dst, receive_buf+buf_s, read_len);
+			buf_s += read_len;
+			buf_len -= read_len;
+			return read_len;
+		} else {
+			a = RECEIVE_BUF_SIZE - buf_s;
+			memcpy(dst, receive_buf+buf_s, a);
+			buf_s = 0;
+			buf_len -= a;
+			b = read_len - a;
+			memcpy(dst, receive_buf, b);
+			buf_s += b;
+			buf_len -= b;	
+			return read_len;
+		}
+	} 
+}
 
 int add_send_task(char* data, int len, uint8_t flags, uint32_t seq, uint32_t ack, uint16_t window){
 	struct send_list *tmp;
@@ -204,6 +267,17 @@ void *thread_send(void *arg){
 	}
 }
 
+void *thread_receive(void *arg){
+	printf("receive thread started\n");
+	//udp_receive(buf, si_dum);
+	return NULL;
+}
+
+void *thread_resend(void *arg){
+	printf("resend thread started\n");
+	return NULL;
+}
+
 int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	dst_ip = d_ip;
 	dst_port = d_port;
@@ -222,22 +296,23 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 
 	if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
 
-
-	printf("a\n");
+	//printf("a\n");
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
-	printf("b\n");
+	//printf("b\n");
 
 	INIT_LIST_HEAD(&mylist.list);
 	pthread_t send_thread;
-	printf("c\n");
+	//printf("c\n");
 	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
-		fprintf(stderr, "Error in creating thread\n");
+		fprintf(stderr, "Error in creating send thread\n");
 		return 0;
 	}
-	printf("d\n");
+
+
+	//printf("d\n");
 
 	struct sockaddr_in si_dum;
 	char buf[BUF_LEN];
@@ -262,6 +337,19 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 			}
 		}
 	}
+	receive_buf = (char *)malloc(RECEIVE_BUF_SIZE);
+
+	pthread_t receive_thread;
+	if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
+		fprintf(stderr, "Error in creating receive thread\n");
+		return 0;
+	}
+
+	pthread_t resend_thread;
+	if(pthread_create( &resend_thread, NULL, thread_resend, NULL) ){
+		fprintf(stderr, "Error in creating resend thread\n");
+		return 0;
+	}
 
 	for(i = 0;i<7;i++) {
 		printf("sending ACK(SYN) No.%d\n", i);
@@ -271,7 +359,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	}
 
 	printf("end of syn\n");
-	
+
 	for(i = 0; i<256;i++){
 		printf("i=%d\n",i);
 		add_send_task("0123456789", 10 , 0,i, i, i);
