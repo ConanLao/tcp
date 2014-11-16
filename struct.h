@@ -20,6 +20,7 @@
 #define FLAG_FINACK 17
 #define PORT 5000
 
+
 enum socket_type { CLIENT = 0, SERVER };
 
 enum socket_state {
@@ -29,6 +30,10 @@ enum socket_state {
 	CONNECTED,
 	WAITING_FOR_FIN,
 	CLOSED
+};
+enum type {
+	TYPE_SERVER = 0,
+	TYPE_CLIENT
 };
 
 // Can create separate header file (.h) for all headers' structure
@@ -86,6 +91,7 @@ struct send_list{
 char* dst_ip;
 uint16_t dst_port;
 uint16_t src_port;
+int type;
 int state;
 uint32_t seq;
 uint32_t ack;
@@ -134,6 +140,7 @@ int add_send_task(char* data, int len, uint8_t flags, uint32_t seq, uint32_t ack
 	list_add_tail(&(tmp->list), &(mylist.list));
 	sem_post( &list_sema);
 	sem_post( &sender_sema);
+	return 1;
 }
 
 //int len is the length of the udp payload
@@ -141,9 +148,8 @@ int udp_send(char* data, int len) {
 	int slen=sizeof(si_other);
 	char buf[len];//opt
 	bzero(buf, len);
-	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
 	memcpy(buf, data, len);
-	if (sendto(s, (char*)buf, len, 0, &si_other, slen)==-1)
+	if (sendto(s, (char*)buf, len, 0, (struct sockaddr *)&si_other, slen)==-1)
 		printf("[error] sendto()");
 	return 1;
 }
@@ -163,7 +169,7 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 
 int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
-	int num = recvfrom(s, buf, BUF_LEN, 0, &si_other, &slen);
+	int num = recvfrom(s, buf, BUF_LEN, 0, (struct sockaddr *)&si_other, &slen);
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -214,7 +220,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	si_me.sin_port = htons(src_port);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(s, &si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
+	if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
 
 
 	printf("a\n");
@@ -241,7 +247,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 		add_send_task("",0,FLAG_SYN, seq, ack, window);
 		printf("receiving SYNACK No.%d\n", i);
 		num = udp_receive(buf, si_dum);
-		printf("num = %d\n, size =%d\n", num, sizeof(tcp_header_t));
+		printf("num = %d\n, size =%ld\n", num, sizeof(tcp_header_t));
 		printf("bool = %d\n", num >= 20);
 		if (num >= 20 ) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
@@ -276,7 +282,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 		add_send_task("",0,FLAG_FIN, seq, ack, window);
 		printf("receiving FINACK No.%d\n", i);
 		num = udp_receive(buf, si_dum);
-		printf("num = %d\n, size =%d\n", num, sizeof(tcp_header_t));
+		printf("num = %d\n, size =%ld\n", num, sizeof(tcp_header_t));
 		printf("bool = %d\n", num >= 20);
 		if (num >= 20 ) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
@@ -291,9 +297,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 			}
 		}
 	}
-
-
-
+	return 1;
 }
 int create_server()
 {
@@ -309,7 +313,7 @@ int create_server()
 	si_me.sin_family = AF_INET;
 	si_me.sin_port = htons(PORT);
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(s, &si_me, sizeof(si_me))==-1)
+	if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1)
 	{
 		printf("bind");
 	}
