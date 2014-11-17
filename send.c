@@ -214,7 +214,12 @@ int main(int argc, char *argv[])
 	//send_ack();
 	
 	create_client("127.0.0.1", 5000, 3000);
-	sleep(1);
+	clock_t start = clock(), diff;
+	test_send(1000000);	
+	diff = clock() - start;
+	int msec = diff * 1000 / CLOCKS_PER_SEC;
+	printf("Time taken %d seconds %d milliseconds", msec/1000, msec%1000);	
+	//sleep(1);
 	tcp_close();
 	while(1);
 	return 0;

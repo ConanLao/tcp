@@ -1,6 +1,7 @@
 #include "list.h"
 #include <semaphore.h>
 #include <pthread.h>
+#include <time.h>
 
 // The packet length
 #define PCKT_LEN 1000
@@ -90,6 +91,7 @@ struct send_list{
 	struct list_head list;
 };
 
+char* test_data = "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890";
 char* dst_ip;
 uint16_t dst_port;
 uint16_t src_port;
@@ -243,9 +245,9 @@ int tcp_send(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
 	struct timeval tv;
-		tv.tv_sec = 1;
-		tv.tv_usec=0;
-		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
+	tv.tv_sec = 1;
+	tv.tv_usec=0;
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
 	int num = recvfrom(s, buf, BUF_LEN, 0, (struct sockaddr *)&si_other, &slen);
 
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
@@ -255,7 +257,6 @@ int udp_receive(char* buf, struct sockaddr_in si_other){
 	//printf("flag :%d\n",tcp_header->flags); 
 	//printf("Received packet from %s:%d\nData: %s\n\n", 
 	//              inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
-	printf("!!!!!!!!!!!!recvd:%d\n",num );
 	return num;
 }
 
@@ -276,7 +277,6 @@ void *thread_send(void *arg){
 		sem_wait( &list_sema );	
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
 		//send_tcp(sock_fd, si_other, len, data, flags, seq, ack);
-		printf("TCP: flag = %d\n", tmp->flags);
 		tcp_send(tmp->data, tmp->len, tmp->flags, tmp->seq, tmp->ack, tmp->window);
 		list_del(mylist.list.next);
 		sem_post( &list_sema );	
@@ -287,15 +287,13 @@ void *thread_receive(void *arg){
 	printf("receive thread started\n");
 	struct sockaddr_in si_dum;
 
-	int flag; 
 	char buf[BUF_LEN];
-	int i, num;
+	int num;
 	sem_post(&create_sema);
 	int resend = 0;
 	int ack_l=0, seq_l =0;
 	while(1){
 		num = udp_receive(buf, si_dum);
-		printf("num received = %d\n", num);
 		tcp_header_t* tcp_header =(tcp_header_t *) buf;
 		if(num<20)
 		{
@@ -320,11 +318,10 @@ void *thread_receive(void *arg){
 				continue;
 		}
 		if (num >= 20 ) {
-			
-			printf("flags:::::%d\n",tcp_header->flags);
+
+			//printf("[receive] flag = %d, seq = %d, ack = %d\n",tcp_header->flags, unpack_uint32(tcp_header->seq_num), unpack_uint32(tcp_header->ack_num) );
 			if(tcp_header->flags == FLAG_SYN && type ==TYPE_SERVER)
-			{
-				printf("sent SYN/ACK\n");
+			{	
 				dst_port = unpack_uint16(tcp_header->src_port);
 				dst_ip = inet_ntoa(si_dum.sin_addr);
 				state = WAITING_FOR_ACK;
@@ -333,8 +330,6 @@ void *thread_receive(void *arg){
 				if(ack != seq_l) continue; 
 				ack  = seq_l+1;
 				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
-				
-				printf("sent SYN/ACK\n");
 				continue;
 			}
 			if (src_port != unpack_uint16(tcp_header->dst_port)
@@ -351,37 +346,47 @@ void *thread_receive(void *arg){
 			}
 			if(tcp_header->flags == FLAG_ACK && state == WAITING_FOR_ACK && type == TYPE_SERVER)
 			{
-					seq_l = unpack_uint32(tcp_header->seq_num);
-					ack_l = unpack_uint32(tcp_header->ack_num);
-					if(ack != seq_l) continue; 
-					ack  = seq_l+1;
-					add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
-					printf("connected\n");
-					state = CONNECTED;
-					continue;
-			}
-			printf("wait!\n");
-			sem_wait(&state_sema);
-			//resending ack in three way hand shake
-			if (tcp_header->flags == FLAG_SYNACK){//to do: check current state
-				printf("[receive]received: SYNACK\n");
-				add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
-			} else if(tcp_header->flags == FLAG_FINACK && state == WAITING_FOR_FIN) {
-				printf("[receive]received: FINACK\n");
-				state = CLOSED;
-			}	
-			printf("out!\n");
-			sem_post(&state_sema);
-			if(tcp_header->flags == FLAG_ACK && state == CONNECTED)
-			{
 				seq_l = unpack_uint32(tcp_header->seq_num);
 				ack_l = unpack_uint32(tcp_header->ack_num);
 				if(ack != seq_l) continue; 
+				//ack  = seq_l+1;
+				add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
+				//printf("connected\n");
+				state = CONNECTED;
+				continue;
+			}
+			sem_wait(&state_sema);
+			//resending ack in three way hand shake
+			if (tcp_header->flags == FLAG_SYNACK){//to do: check current state
+				//printf("[receive]received: SYNACK\n");
+				add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
+			} else if(tcp_header->flags == FLAG_FINACK && state == WAITING_FOR_FIN) {
+				//printf("[receive]received: FINACK\n");
+				state = CLOSED;
+			}	
+			sem_post(&state_sema);
+			if(tcp_header->flags == 0 && state == CONNECTED)
+			{	
+				//printf("[receive thread] data received\n");
+				seq_l = unpack_uint32(tcp_header->seq_num);
+				ack_l = unpack_uint32(tcp_header->ack_num);
+				//printf("[receive thread] global ack = %d, seq_l = %d\n", ack, seq_l);
+				if(ack != seq_l) continue; 
 				int size = num -20;
 				ack  = seq_l+size;
-				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
+				//printf("[received thread] sending back ack; seq = %d, ack = %d\n", seq, ack);
+				add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
 			}
-
+			if(tcp_header->flags == FLAG_ACK && state == CONNECTED)
+			{	
+				//printf("[receive thread] data ack received\n");
+				seq_l = unpack_uint32(tcp_header->seq_num);
+				ack_l = unpack_uint32(tcp_header->ack_num);
+				//printf("[receive thread] data ack global ack = %d, seq_l = %d", seq, ack_l);
+				if (seq < ack_l){
+					seq = ack_l;
+				}
+			}
 		}
 	}
 
@@ -415,22 +420,16 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 
 	if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
 
-	//printf("a\n");
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
-	//printf("b\n");
 
 	INIT_LIST_HEAD(&mylist.list);
-	//printf("c\n");
 	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating send thread\n");
 		return 0;
 	}
-
-
-	//printf("d\n");
 
 	struct sockaddr_in si_dum;
 	char buf[BUF_LEN];
@@ -546,28 +545,75 @@ int tcp_close(){
 	printf("tcp connection closed\n");
 }
 
-int sonic_send(char *data, unsigned int len) {
+int test_send(unsigned int number) {
+	unsigned int len = number * 1000;
+	int num_sent = 0;
+	int start_seq = seq;
+	struct timespec tv;
+	tv.tv_sec = 0;
+	tv.tv_nsec = 1000000;
+	while (num_sent < len) {
+		//printf("window = %d\n", window);
+		int i;
+		int s = seq;
+		int start = s;
+		int sum = 0;
+		for ( i = 0; i < window; i++) {
+			add_send_task(test_data, PCKT_LEN, 0, s, ack, 0);
+			s+=PCKT_LEN;
+			sum += PCKT_LEN;
+			if (sum + num_sent >= len){
+				break;
+			}
+		}
+		
+		nanosleep(&tv, NULL);
+		if (sum == seq - start) {
+			window++;
+		} else {
+			window = window / 2;
+		}
+		num_sent = seq - start_seq;
+		//printf("[test_send] num_sent = %d\n", num_sent);
+	}
+	return num_sent;
+}
+
+int sonic_send(char *data, int len) {
 	int num_sent = 0;
 	int index = 0;
 	int start_seq = seq;
 	while (num_sent < len) {
+		printf("window = %d\n", window);
 		int i;
 		int j = index;
 		int s = seq;
 		int l = len - num_sent;
+		printf("num_sent = %d, l = %d\n", num_sent, l);
+		int start = s;
+		int sum = 0;
 		for ( i = 0; i < window; i++) {
-			if ( PACK_LEN > l) {
+			if ( PCKT_LEN < l) {
 				add_send_task(data+j, PCKT_LEN, 0, s, ack, 0);
 				j += PCKT_LEN;
 				s += PCKT_LEN;
+				sum += PCKT_LEN;
 			} else {
+				printf("[sonic_send] seq = %d, ack = %d\n", s, ack);
 				add_send_task(data+j, l, 0, s, ack, 0);
 				j += l;
 				s += l;
+				sum += l;
 				break;//last packet
 			}
 		}
+		printf("[sonic_send] globale seq = %d\n", seq);
 		sleep(1);
+		if (sum == seq - start) {
+			window++;
+		} else {
+			window = window / 2;
+		}
 		num_sent = seq - start_seq;
 		index = seq-start_seq;
 	}	
