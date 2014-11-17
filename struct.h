@@ -219,6 +219,7 @@ int udp_send(char* data, int len) {
 	char buf[len];//opt
 	bzero(buf, len);
 	memcpy(buf, data, len);
+
 	if (sendto(s, (char*)buf, len, 0, (struct sockaddr *)&si_other, slen)==-1)
 		printf("[error] sendto()");
 	return 1;
@@ -232,14 +233,17 @@ int tcp_send(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	p_tcphdr->flags = flags;
 	pack_uint32(seq, p_tcphdr->seq_num);
 	pack_uint32(ack, p_tcphdr->ack_num);
-	pack_uint16(ack, p_tcphdr->window);
+	pack_uint16(window, p_tcphdr->window);
+
 	memcpy(p_tcphdr->options_and_data, data, len);
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
 
 int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
+
 	int num = recvfrom(s, buf, BUF_LEN, 0, (struct sockaddr *)&si_other, &slen);
+
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -247,6 +251,7 @@ int udp_receive(char* buf, struct sockaddr_in si_other){
 	//printf("flag :%d\n",tcp_header->flags); 
 	//printf("Received packet from %s:%d\nData: %s\n\n", 
 	//              inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
+	printf("!!!!!!!!!!!!recvd:%d\n",num );
 	return num;
 }
 
@@ -355,6 +360,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	int i, num;
 	for(i = 0;i<7;i++) {
 		add_send_task("",0,FLAG_SYN, seq, ack, window);
+
 		num = udp_receive(buf, si_dum);
 		if (num >= 20 ) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
@@ -373,6 +379,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	}
 	printf("[creating client] SYNACK received\n");
 	receive_buf = (char *)malloc(RECEIVE_BUF_SIZE);
+
 
 	if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
 		fprintf(stderr, "Error in creating receive thread\n");

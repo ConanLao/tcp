@@ -61,7 +61,6 @@ int main(void)
 				resend++;
 				int size = received_size - 20;
 				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,0, seq+size,MAX_WINDOW);
-				printf("sent SYN/ACK");
 				continue;
 			}
 			else 
@@ -88,6 +87,8 @@ int main(void)
 			ack = unpack_uint32(p_tcphdr->ack_num);
 			int size = received_size - 20;
 			add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,0, seq+size,MAX_WINDOW);
+			//src_port = unpack_uint16(tcp_header->dst_port);
+			dst_port = unpack_uint16(tcp_header->src_port);
 			printf("sent FIN");
 			continue;
 		}
