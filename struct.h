@@ -3,6 +3,7 @@
 #include <pthread.h>
 
 // The packet length
+#define PCKT_LEN 1000
 #define BUF_LEN 1600 //MTU of ehternet is 1500 bytes 
 
 //TCP flags
@@ -223,7 +224,7 @@ int udp_send(char* data, int len) {
 	return 1;
 }
 
-int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t window){
+int tcp_send(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t window){
 	char buf[len + sizeof(tcp_header_t)];
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
 	pack_uint16(src_port, p_tcphdr->src_port);
@@ -267,7 +268,7 @@ void *thread_send(void *arg){
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
 		//send_tcp(sock_fd, si_other, len, data, flags, seq, ack);
 		printf("TCP: flag = %d\n", tmp->flags);
-		send_tcp(tmp->data, tmp->len, tmp->flags, tmp->seq, tmp->ack, tmp->window);
+		tcp_send(tmp->data, tmp->len, tmp->flags, tmp->seq, tmp->ack, tmp->window);
 		list_del(mylist.list.next);
 		sem_post( &list_sema );	
 	}
@@ -276,7 +277,7 @@ void *thread_send(void *arg){
 void *thread_receive(void *arg){
 	printf("receive thread started\n");
 	struct sockaddr_in si_dum;
-	
+
 	char buf[BUF_LEN];
 	int i, num;
 	sem_post(&create_sema);
@@ -316,6 +317,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	dst_ip = d_ip;
 	dst_port = d_port;
 	src_port = s_port;
+	type = TYPE_CLIENT;
 	sem_init( &create_sema,0, 0);
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
@@ -392,16 +394,17 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	sem_wait(&create_sema);
 	sem_wait(&create_sema);
 	printf("[creating client] successful\n");
-/**
-	for(i = 0; i<256;i++){
-		printf("i=%d\n",i);
-		add_send_task("0123456789", 10 , 0,i, i, i);
-		udp_receive(buf, si_dum);
-	}
-*/
-	
+	/**
+	  for(i = 0; i<256;i++){
+	  printf("i=%d\n",i);
+	  add_send_task("0123456789", 10 , 0,i, i, i);
+	  udp_receive(buf, si_dum);
+	  }
+	 */
+
 	return 1;
 }
+
 int create_server()
 {
 	dst_ip = "127.0.0.1";
@@ -449,4 +452,32 @@ int tcp_close(){
 		sem_post(&state_sema);
 	}
 	printf("tcp connection closed\n");
+}
+
+int sonic_send(char *data, unsigned int len) {
+	int num_sent = 0;
+	int index = 0;
+	int start_seq = seq;
+	while (num_sent < len) {
+		int i;
+		int j = index;
+		int s = seq;
+		int l = len - num_sent;
+		for ( i = 0; i < window; i++) {
+			if ( PACK_LEN > l) {
+				add_send_task(data+j, PCKT_LEN, 0, s, ack, 0);
+				j += PCKT_LEN;
+				s += PCKT_LEN;
+			} else {
+				add_send_task(data+j, l, 0, s, ack, 0);
+				j += l;
+				s += l;
+				break;//last packet
+			}
+		}
+		sleep(1);
+		num_sent = seq - start_seq;
+		index = seq-start_seq;
+	}	
+	return num_sent;
 }
