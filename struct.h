@@ -143,6 +143,7 @@ int udp_send(char* data, int len) {
 	bzero(buf, len);
 	tcp_header_t *p_tcphdr = (tcp_header_t *)buf;
 	memcpy(buf, data, len);
+	printf("~~!!!!++++____+++tcp_flag:%d\n",p_tcphdr->flags );
 	if (sendto(s, (char*)buf, len, 0, &si_other, slen)==-1)
 		printf("[error] sendto()");
 	return 1;
@@ -156,14 +157,19 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	p_tcphdr->flags = flags;
 	pack_uint32(seq, p_tcphdr->seq_num);
 	pack_uint32(ack, p_tcphdr->ack_num);
-	pack_uint16(ack, p_tcphdr->window);
+	pack_uint16(window, p_tcphdr->window);
+
 	memcpy(p_tcphdr->options_and_data, data, len);
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
 
 int udp_receive(char* buf, struct sockaddr_in *si_other){
 	int slen=sizeof(si_other);
-	int num = recvfrom(s, buf, BUF_LEN, 0, si_other, &slen);
+	struct timeval tv;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
+	int num = recvfrom(s, buf, BUF_LEN, 0, &si_other, &slen);
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -171,6 +177,7 @@ int udp_receive(char* buf, struct sockaddr_in *si_other){
 	//printf("flag :%d\n",tcp_header->flags); 
 	//printf("Received packet from %s:%d\nData: %s\n\n", 
 	//              inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port), buf);
+	printf("!!!!!!!!!!!!recvd:%d\n",num );
 	return num;
 }
 
@@ -239,6 +246,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 		printf("receiving SYNACK No.%d\n", i);
 		num = udp_receive(buf, NULL);
 		printf("after\n");
+
 		if (num >= sizeof(tcp_header_t)) {
 			tcp_header_t* tcp_header =(tcp_header_t *) buf;
 			printf("flag synack : %d\n", tcp_header->flags);//need to check the ip is the server or not
@@ -254,16 +262,16 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	}
 
 	printf("end of syn\n");
-	for(i = 0; i<256;i++){
-		add_send_task("0123456789", 10 , i,i, i, i);
-	}
+	// for(i = 0; i<256;i++){
+	// 	add_send_task("0123456789", 10 , i,i, i, i);
+	// }
 
 }
 int create_server()
 {
 	dst_ip = "127.0.0.1";
-	dst_port = 1000;
-	src_port = 2000;
+	dst_port = 3000;
+	src_port = 5000;
 	printf("%d\n",sem_init( &sender_sema, 0,0));
 	printf ("%d\n",sem_init( &list_sema, 0,1));
 	
