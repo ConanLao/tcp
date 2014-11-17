@@ -20,13 +20,15 @@
 //int ack = 0;
 
 
+
+
 /* diep(), #includes and #defines like in the server */
 void diep(char *s)
 {
 	perror(s);
 	exit(1);
 }
-
+/**
 int receive_udp(char* buf, struct timeval tv, struct sockaddr_in si_other){
 	struct sockaddr_in si_me;
 	int s, i, slen=sizeof(si_other);
@@ -198,6 +200,7 @@ int sonic_close(){
 	}
 	return 0;
 }
+*/
 
 int main(int argc, char *argv[])
 {
@@ -210,10 +213,10 @@ int main(int argc, char *argv[])
 	//}
 	//send_ack();
 	
-	
 	create_client("127.0.0.1", 5000, 3000);
+	sleep(1);
+	tcp_close();
 	while(1);
-	sonic_close();	
 	return 0;
 }
 
