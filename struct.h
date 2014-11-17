@@ -21,6 +21,7 @@
 #define PORT 5000
 
 #define RECEIVE_BUF_SIZE 1024 * 1024 * 32 // 32 mb
+
 enum socket_type { CLIENT = 0, SERVER };
 
 enum socket_state {
@@ -101,7 +102,7 @@ struct sockaddr_in si_other;
 int s;
 struct send_list mylist;
 sem_t create_sema;// this is used to make sure the create function returns after the threads are created
-sem_t sender_sema;
+sem_t sender_sema; 
 sem_t list_sema;
 sem_t state_sema;
 
@@ -240,7 +241,10 @@ int send_tcp(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 
 int udp_receive(char* buf, struct sockaddr_in si_other){
 	int slen=sizeof(si_other);
-
+	struct timeval tv;
+		tv.tv_sec = 1;
+		tv.tv_usec=0;
+		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
 	int num = recvfrom(s, buf, BUF_LEN, 0, (struct sockaddr *)&si_other, &slen);
 
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
@@ -281,19 +285,80 @@ void *thread_send(void *arg){
 void *thread_receive(void *arg){
 	printf("receive thread started\n");
 	struct sockaddr_in si_dum;
-	
+	int flag; 
 	char buf[BUF_LEN];
 	int i, num;
 	sem_post(&create_sema);
+	int resend = 0;
+	int ack_l=0, seq_l =0;
 	while(1){
 		num = udp_receive(buf, si_dum);
 		printf("num received = %d\n", num);
+		tcp_header_t* tcp_header =(tcp_header_t *) buf;
+		if(num<20)
+		{
+			if(resend >7) 
+			{
+				printf("connection failed\n");
+				state=0;
+				resend =0;
+				continue;
+			}
+			if(state == WAITING_FOR_ACK)
+			{
+				seq_l = unpack_uint32(tcp_header->seq_num);
+				ack_l = unpack_uint32(tcp_header->ack_num);
+				if(ack != seq_l) continue; 
+				ack  = seq_l+1;
+				resend++;
+				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
+				continue;
+			}
+			else 
+				continue;
+		}
 		if (num >= 20 ) {
-			tcp_header_t* tcp_header =(tcp_header_t *) buf;
+			
+			printf("flags:::::%d\n",tcp_header->flags);
+			if(tcp_header->flags == FLAG_SYN && type ==TYPE_SERVER)
+			{
+				printf("sent SYN/ACK\n");
+				dst_port = unpack_uint16(tcp_header->src_port);
+				dst_ip = inet_ntoa(si_dum.sin_addr);
+				state = WAITING_FOR_ACK;
+				seq_l = unpack_uint32(tcp_header->seq_num);
+				ack_l = unpack_uint32(tcp_header->ack_num);
+				if(ack != seq_l) continue; 
+				ack  = seq_l+1;
+				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
+				
+				printf("sent SYN/ACK\n");
+				continue;
+			}
 			if (src_port != unpack_uint16(tcp_header->dst_port)
 					|| dst_port != unpack_uint16(tcp_header->src_port)){//wrong connection; need to check source addr acutally but you know..
 				continue;
 			}
+			if(tcp_header->flags == FLAG_FIN && state!=WAITING_FOR_FIN)
+			{
+				int size = num - 20;
+				add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,0, seq+size,window);
+				if(type== TYPE_CLIENT) 
+					state = CLOSED;
+				continue;
+			}
+			if(tcp_header->flags == FLAG_ACK && state == WAITING_FOR_ACK && type == TYPE_SERVER)
+			{
+					seq_l = unpack_uint32(tcp_header->seq_num);
+					ack_l = unpack_uint32(tcp_header->ack_num);
+					if(ack != seq_l) continue; 
+					ack  = seq_l+1;
+					add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
+					printf("connected\n");
+					state = CONNECTED;
+					continue;
+			}
+			printf("wait!\n");
 			sem_wait(&state_sema);
 			//resending ack in three way hand shake
 			if (tcp_header->flags == FLAG_SYNACK){//to do: check current state
@@ -303,7 +368,18 @@ void *thread_receive(void *arg){
 				printf("[receive]received: FINACK\n");
 				state = CLOSED;
 			}	
+			printf("out!\n");
 			sem_post(&state_sema);
+			if(tcp_header->flags == FLAG_ACK && state == CONNECTED)
+			{
+				seq_l = unpack_uint32(tcp_header->seq_num);
+				ack_l = unpack_uint32(tcp_header->ack_num);
+				if(ack != seq_l) continue; 
+				int size = num -20;
+				ack  = seq_l+size;
+				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
+			}
+
 		}
 	}
 
@@ -321,6 +397,7 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	dst_ip = d_ip;
 	dst_port = d_port;
 	src_port = s_port;
+	type = TYPE_CLIENT;
 	sem_init( &create_sema,0, 0);
 	sem_init( &sender_sema, 0,0);
 	sem_init( &list_sema, 0,1);
@@ -409,13 +486,16 @@ int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
 	
 	return 1;
 }
-int create_server()
+int create_server(uint16_t src_p)
 {
 	dst_ip = "127.0.0.1";
 	dst_port = 3000;
-	src_port = 5000;
-	printf("%d\n",sem_init( &sender_sema, 0,0));
-	printf ("%d\n",sem_init( &list_sema, 0,1));
+	src_port = src_p;
+	type =TYPE_SERVER;
+	sem_init( &sender_sema, 0,0);
+	sem_init( &list_sema, 0,1);
+	sem_init( &create_sema,0, 0);
+	sem_init( &state_sema, 0, 1);
 
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 		printf("socket");
@@ -430,11 +510,17 @@ int create_server()
 	INIT_LIST_HEAD(&mylist.list);
 	pthread_t send_thread;
 	printf("c\n");
+	state = 0;
 	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
 		fprintf(stderr, "Error in creating thread\n");
 		return 0;
 	}
-	printf("d\n");
+	if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
+		fprintf(stderr, "Error in creating receive thread\n");
+		return 0;
+	}
+	sem_wait(&create_sema);
+	sem_wait(&create_sema);
 	return 0;
 }
 
