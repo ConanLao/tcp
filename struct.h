@@ -324,21 +324,21 @@ void *thread_receive(void *arg){
 			if(tcp_header->flags == FLAG_SYN && type ==TYPE_SERVER)
 			{	
 				dst_port = unpack_uint16(tcp_header->src_port);
-				dst_ip = "10.218.12.222";
+				dst_ip = "128.84.139.25";
 				if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
 					printf("[error] inet_aton() failed\n");
 				}
 				//dst_ip = inet_ntoa(si_dum.sin_addr);
 				printf("[tcp_receive:]dst ip:%s,dst_port:%d\n",dst_ip,dst_port);
-				state = WAITING_FOR_ACK;
 				seq_l = unpack_uint32(tcp_header->seq_num);
 				ack_l = unpack_uint32(tcp_header->ack_num);
 				//if(state == WAITING_FOR_SYN && ack != seq_l) continue; 
 				if (state == WAITING_FOR_SYN) {	
+					state = WAITING_FOR_ACK;
 					ack  = seq_l+1;
 				}
-						add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
-					continue;
+				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
+				continue;
 				}
 				if (src_port != unpack_uint16(tcp_header->dst_port)
 						|| dst_port != unpack_uint16(tcp_header->src_port)){//wrong connection; need to check source addr acutally but you know..
@@ -453,7 +453,7 @@ void *thread_receive(void *arg){
 						&& dst_port == unpack_uint16(tcp_header->src_port)
 						&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
 					ack = unpack_uint32(tcp_header->seq_num);
-					seq = unpack_uint32(tcp_header->ack_num);
+					seq = unpack_uint32(tcp_header->ack_num) + 1;
 					sem_wait(&create_sema);
 					state = CONNECTED;
 					sem_post(&create_sema);
