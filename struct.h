@@ -449,6 +449,7 @@ void *thread_receive(void *arg){
 		struct sockaddr_in si_dum;
 		char buf[BUF_LEN];
 		int i, num;
+		int flag=0;
 		for(i = 0;i<7;i++) {
 			add_send_task("",0,FLAG_SYN, seq, ack, window);
 
@@ -459,15 +460,23 @@ void *thread_receive(void *arg){
 						&& dst_port == unpack_uint16(tcp_header->src_port)
 						&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
 					ack = unpack_uint32(tcp_header->seq_num);
-					seq = unpack_uint32(tcp_header->ack_num) + 1;
+					seq = unpack_uint32(tcp_header->ack_num);
+					printf("SEQ: %d\n",seq);
 					sem_wait(&create_sema);
 					state = CONNECTED;
 					sem_post(&create_sema);
 					add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
+					flag=1;
 					break;
 				}
 			}
 		}
+		if(flag==0) 
+		{
+			printf("connection failed! Exiting..");
+			return -1;
+		}
+
 		printf("[creating client] SYNACK received\n");
 		receive_buf = (char *)malloc(RECEIVE_BUF_SIZE);
 
@@ -584,7 +593,7 @@ void *thread_receive(void *arg){
 
 			nanosleep(&tv, NULL);
 			if (sum == seq - start) {
-				window = window +10;
+				window = window +1;
 			} else {
 				window = window / 2;
 			}
