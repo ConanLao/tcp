@@ -453,7 +453,8 @@ void *thread_receive(void *arg){
 						&& dst_port == unpack_uint16(tcp_header->src_port)
 						&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
 					ack = unpack_uint32(tcp_header->seq_num);
-					seq = unpack_uint32(tcp_header->ack_num) + 1;
+					seq = unpack_uint32(tcp_header->ack_num);
+					printf("SEQ: %d\n",seq);
 					sem_wait(&create_sema);
 					state = CONNECTED;
 					sem_post(&create_sema);
