@@ -209,9 +209,9 @@ int add_send_task(char* data, int len, uint8_t flags, uint32_t seq, uint32_t ack
 	tmp->seq = seq;
 	tmp->ack = ack;
 	tmp->window = window;
-	printf("add a\n");
+	//printf("add a\n");
 	sem_wait( &list_sema);
-	printf("add b\n");
+	//printf("add b\n");
 	list_add_tail(&(tmp->list), &(mylist.list));
 	sem_post( &list_sema);
 	sem_post( &sender_sema);
@@ -276,18 +276,18 @@ void *thread_send(void *arg){
 
 	sem_post(&create_sema);
 	while(1){
-		printf("a\n");
+		//printf("a\n");
 		sem_wait( &sender_sema ); 
-		printf("b\n");
+		//printf("b\n");
 		sem_wait( &list_sema );	
-		printf("c\n");
+		//printf("c\n");
 		struct send_list *tmp =list_entry(mylist.list.next, struct send_list, list);	
 		//send_tcp(sock_fd, si_other, len, data, flags, seq, ack);
 		tcp_send(tmp->data, tmp->len, tmp->flags, tmp->seq, tmp->ack, tmp->window);
 		list_del(mylist.list.next);
-		printf("d\n");
+		//printf("d\n");
 		sem_post( &list_sema );	
-		printf("e\n");
+		//printf("e\n");
 	}
 }
 
