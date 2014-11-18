@@ -553,7 +553,7 @@ int test_send(unsigned int number) {
 	tv.tv_sec = 0;
 	tv.tv_nsec = 1000000;
 	while (num_sent < len) {
-		//printf("window = %d\n", window);
+		printf("window = %d\n", window);
 		int i;
 		int s = seq;
 		int start = s;
