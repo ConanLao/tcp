@@ -245,14 +245,14 @@ int tcp_send(char* data,int len, int flags, uint32_t seq, uint32_t ack, uint16_t
 	return udp_send(buf, len + sizeof(tcp_header_t));
 }
 
-int udp_receive(char* buf, struct sockaddr_in si_other){
-	int slen=sizeof(si_other);
+int udp_receive(char* buf, struct sockaddr_in *si_dum){
+	int slen=sizeof(*si_dum);
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec=0;
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
-	int num = recvfrom(s, buf, BUF_LEN, 0, (struct sockaddr *)&si_other, &slen);
-
+	int num = recvfrom(s, buf, BUF_LEN, 0, (struct sockaddr *)si_dum, &slen);
+	//printf("udp_receive ip = %s\n", inet_ntoa(si_dum->sin_addr));
 	//tcp_header_t* tcp_header =(tcp_header_t *) buf;
 	//src_port = unpack_uint16(tcp_header->src_port);
 	//dst_port = unpack_uint16(tcp_header->dst_port);
@@ -301,7 +301,7 @@ void *thread_receive(void *arg){
 	int resend = 0;
 	int ack_l=0, seq_l =0;
 	while(1){
-		num = udp_receive(buf, si_dum);
+		num = udp_receive(buf, &si_dum);
 		tcp_header_t* tcp_header =(tcp_header_t *) buf;
 		if(num<20)
 		{
@@ -331,12 +331,12 @@ void *thread_receive(void *arg){
 			if(tcp_header->flags == FLAG_SYN && type ==TYPE_SERVER)
 			{	
 				dst_port = unpack_uint16(tcp_header->src_port);
-				dst_ip = "128.84.139.25";
+				//dst_ip = "128.84.139.25";
+				dst_ip = inet_ntoa(si_dum.sin_addr);
+				printf("[tcp_receive:]dst ip:%s,dst_port:%d\n",dst_ip,dst_port);
 				if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
 					printf("[error] inet_aton() failed\n");
 				}
-				//dst_ip = inet_ntoa(si_dum.sin_addr);
-				printf("[tcp_receive:]dst ip:%s,dst_port:%d\n",dst_ip,dst_port);
 				seq_l = unpack_uint32(tcp_header->seq_num);
 				ack_l = unpack_uint32(tcp_header->ack_num);
 				//if(state == WAITING_FOR_SYN && ack != seq_l) continue; 
@@ -452,7 +452,7 @@ void *thread_receive(void *arg){
 		for(i = 0;i<7;i++) {
 			add_send_task("",0,FLAG_SYN, seq, ack, window);
 
-			num = udp_receive(buf, si_dum);
+			num = udp_receive(buf, &si_dum);
 			if (num >= 20 ) {
 				tcp_header_t* tcp_header =(tcp_header_t *) buf;
 				if (src_port == unpack_uint16(tcp_header->dst_port)
