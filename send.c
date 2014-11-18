@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 	//}
 	//send_ack();
 	
-	create_client("127.0.0.1", 5000, 3000);
+	create_client("10.148.12.222", 5000, 3000);
 	clock_t start = clock(), diff;
 	test_send(1000000);	
 	diff = clock() - start;

@@ -222,7 +222,7 @@ int udp_send(char* data, int len) {
 	char buf[len];//opt
 	bzero(buf, len);
 	memcpy(buf, data, len);
-	printf("udp send dst ip = %s\n", inet_ntoa(si_other.sin_addr));
+	//printf("udp send dst ip = %s\n", inet_ntoa(si_other.sin_addr));
 
 	if (sendto(s, (char*)buf, len, 0, (struct sockaddr *)&si_other, slen)==-1)
 		printf("[error] sendto()");
@@ -333,7 +333,7 @@ void *thread_receive(void *arg){
 				state = WAITING_FOR_ACK;
 				seq_l = unpack_uint32(tcp_header->seq_num);
 				ack_l = unpack_uint32(tcp_header->ack_num);
-				if(state == WAITING_FOR_SYN && ack != seq_l) continue; 
+				//if(state == WAITING_FOR_SYN && ack != seq_l) continue; 
 				if (state == WAITING_FOR_SYN) {	
 					ack  = seq_l+1;
 				}
@@ -442,6 +442,7 @@ void *thread_receive(void *arg){
 		struct sockaddr_in si_dum;
 		char buf[BUF_LEN];
 		int i, num;
+		int flag=0;
 		for(i = 0;i<7;i++) {
 			add_send_task("",0,FLAG_SYN, seq, ack, window);
 
@@ -457,10 +458,17 @@ void *thread_receive(void *arg){
 					state = CONNECTED;
 					sem_post(&create_sema);
 					add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
+					flag=1;
 					break;
 				}
 			}
 		}
+		if(flag==0) 
+		{
+			printf("connection failed! Exiting..");
+			return -1;
+		}
+
 		printf("[creating client] SYNACK received\n");
 		receive_buf = (char *)malloc(RECEIVE_BUF_SIZE);
 
@@ -577,7 +585,7 @@ void *thread_receive(void *arg){
 
 			nanosleep(&tv, NULL);
 			if (sum == seq - start) {
-				window = window +10;
+				window = window +1;
 			} else {
 				window = window / 2;
 			}
