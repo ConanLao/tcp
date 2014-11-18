@@ -222,6 +222,7 @@ int udp_send(char* data, int len) {
 	char buf[len];//opt
 	bzero(buf, len);
 	memcpy(buf, data, len);
+	printf("udp send dst ip = %s\n", inet_ntoa(si_other.sin_addr));
 
 	if (sendto(s, (char*)buf, len, 0, (struct sockaddr *)&si_other, slen)==-1)
 		printf("[error] sendto()");
@@ -319,303 +320,310 @@ void *thread_receive(void *arg){
 		}
 		if (num >= 20 ) {
 
-			//printf("[receive] flag = %d, seq = %d, ack = %d\n",tcp_header->flags, unpack_uint32(tcp_header->seq_num), unpack_uint32(tcp_header->ack_num) );
+			printf("[receive] flag = %d, seq = %d, ack = %d\n",tcp_header->flags, unpack_uint32(tcp_header->seq_num), unpack_uint32(tcp_header->ack_num) );
 			if(tcp_header->flags == FLAG_SYN && type ==TYPE_SERVER)
 			{	
 				dst_port = unpack_uint16(tcp_header->src_port);
-				dst_ip = inet_ntoa(si_dum.sin_addr);
+				dst_ip = "10.218.12.222";
+				if (inet_aton(dst_ip, &si_other.sin_addr)==0) {
+					printf("[error] inet_aton() failed\n");
+				}
+				//dst_ip = inet_ntoa(si_dum.sin_addr);
+				printf("[tcp_receive:]dst ip:%s,dst_port:%d\n",dst_ip,dst_port);
 				state = WAITING_FOR_ACK;
 				seq_l = unpack_uint32(tcp_header->seq_num);
 				ack_l = unpack_uint32(tcp_header->ack_num);
-				if(ack != seq_l) continue; 
-				ack  = seq_l+1;
-				add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
-				continue;
-			}
-			if (src_port != unpack_uint16(tcp_header->dst_port)
-					|| dst_port != unpack_uint16(tcp_header->src_port)){//wrong connection; need to check source addr acutally but you know..
-				continue;
-			}
-			if(tcp_header->flags == FLAG_FIN && state!=WAITING_FOR_FIN)
-			{
-				int size = num - 20;
-				add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,0, seq+size,window);
-				if(type== TYPE_CLIENT) 
+				if(state == WAITING_FOR_SYN && ack != seq_l) continue; 
+				if (state == WAITING_FOR_SYN) {	
+					ack  = seq_l+1;
+				}
+						add_send_task("", 0 , FLAG_SYN | FLAG_ACK ,seq, ack,window);
+					continue;
+				}
+				if (src_port != unpack_uint16(tcp_header->dst_port)
+						|| dst_port != unpack_uint16(tcp_header->src_port)){//wrong connection; need to check source addr acutally but you know..
+					continue;
+				}
+				if(tcp_header->flags == FLAG_FIN && state!=WAITING_FOR_FIN)
+				{
+					int size = num - 20;
+					add_send_task("", 0 , FLAG_FIN | FLAG_ACK ,0, seq+size,window);
+					if(type== TYPE_CLIENT) 
+						state = CLOSED;
+					continue;
+				}
+				if(tcp_header->flags == FLAG_ACK && state == WAITING_FOR_ACK && type == TYPE_SERVER)
+				{
+					seq_l = unpack_uint32(tcp_header->seq_num);
+					ack_l = unpack_uint32(tcp_header->ack_num);
+					if(ack != seq_l) continue; 
+					//ack  = seq_l+1;
+					add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
+					printf("connected\n");
+					state = CONNECTED;
+					continue;
+				}
+				sem_wait(&state_sema);
+				//resending ack in three way hand shake
+				if (tcp_header->flags == FLAG_SYNACK){//to do: check current state
+					//printf("[receive]received: SYNACK\n");
+					add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
+				} else if(tcp_header->flags == FLAG_FINACK && state == WAITING_FOR_FIN) {
+					//printf("[receive]received: FINACK\n");
 					state = CLOSED;
-				continue;
-			}
-			if(tcp_header->flags == FLAG_ACK && state == WAITING_FOR_ACK && type == TYPE_SERVER)
-			{
-				seq_l = unpack_uint32(tcp_header->seq_num);
-				ack_l = unpack_uint32(tcp_header->ack_num);
-				if(ack != seq_l) continue; 
-				//ack  = seq_l+1;
-				add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
-				//printf("connected\n");
-				state = CONNECTED;
-				continue;
-			}
-			sem_wait(&state_sema);
-			//resending ack in three way hand shake
-			if (tcp_header->flags == FLAG_SYNACK){//to do: check current state
-				//printf("[receive]received: SYNACK\n");
-				add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
-			} else if(tcp_header->flags == FLAG_FINACK && state == WAITING_FOR_FIN) {
-				//printf("[receive]received: FINACK\n");
-				state = CLOSED;
-			}	
-			sem_post(&state_sema);
-			if(tcp_header->flags == 0 && state == CONNECTED)
-			{	
-				//printf("[receive thread] data received\n");
-				seq_l = unpack_uint32(tcp_header->seq_num);
-				ack_l = unpack_uint32(tcp_header->ack_num);
-				//printf("[receive thread] global ack = %d, seq_l = %d\n", ack, seq_l);
-				if(ack != seq_l) continue; 
-				int size = num -20;
-				ack  = seq_l+size;
-				//printf("[received thread] sending back ack; seq = %d, ack = %d\n", seq, ack);
-				add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
-			}
-			if(tcp_header->flags == FLAG_ACK && state == CONNECTED)
-			{	
-				//printf("[receive thread] data ack received\n");
-				seq_l = unpack_uint32(tcp_header->seq_num);
-				ack_l = unpack_uint32(tcp_header->ack_num);
-				//printf("[receive thread] data ack global ack = %d, seq_l = %d", seq, ack_l);
-				if (seq < ack_l){
-					seq = ack_l;
+				}	
+				sem_post(&state_sema);
+				if(tcp_header->flags == 0 && state == CONNECTED)
+				{	
+					//printf("[receive thread] data received\n");
+					seq_l = unpack_uint32(tcp_header->seq_num);
+					ack_l = unpack_uint32(tcp_header->ack_num);
+					//printf("[receive thread] global ack = %d, seq_l = %d\n", ack, seq_l);
+					if(ack != seq_l) continue; 
+					int size = num -20;
+					ack  = seq_l+size;
+					//printf("[received thread] sending back ack; seq = %d, ack = %d\n", seq, ack);
+					add_send_task("", 0 , FLAG_ACK ,seq, ack,window);
+				}
+				if(tcp_header->flags == FLAG_ACK && state == CONNECTED)
+				{	
+					//printf("[receive thread] data ack received\n");
+					seq_l = unpack_uint32(tcp_header->seq_num);
+					ack_l = unpack_uint32(tcp_header->ack_num);
+					//printf("[receive thread] data ack global ack = %d, seq_l = %d", seq, ack_l);
+					if (seq < ack_l){
+						seq = ack_l;
+					}
 				}
 			}
 		}
+
+		//udp_receive(buf, si_dum);
+		return NULL;
 	}
 
-	//udp_receive(buf, si_dum);
-	return NULL;
-}
-
-void *thread_resend(void *arg){
-	printf("resend thread started\n");
-	sem_post(&create_sema);
-	return NULL;
-}
-
-int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
-	dst_ip = d_ip;
-	dst_port = d_port;
-	src_port = s_port;
-	type = TYPE_CLIENT;
-	sem_init( &create_sema,0, 0);
-	sem_init( &sender_sema, 0,0);
-	sem_init( &list_sema, 0,1);
-	sem_init( &state_sema, 0, 1);
-	printf("creating TCP client with dst_port:%d, src_port:%d\n",dst_port, src_port );
-
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1);//diep("socket");
-
-	memset((char *) &si_me, 0, sizeof(si_me));
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(src_port);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
-
-	struct timeval tv;
-	tv.tv_sec = 1;
-	tv.tv_usec = 0;
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
-
-	INIT_LIST_HEAD(&mylist.list);
-	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
-		fprintf(stderr, "Error in creating send thread\n");
-		return 0;
+	void *thread_resend(void *arg){
+		printf("resend thread started\n");
+		sem_post(&create_sema);
+		return NULL;
 	}
 
-	struct sockaddr_in si_dum;
-	char buf[BUF_LEN];
-	int i, num;
-	for(i = 0;i<7;i++) {
-		add_send_task("",0,FLAG_SYN, seq, ack, window);
+	int create_client(char* d_ip, uint16_t d_port, uint16_t s_port){
+		dst_ip = d_ip;
+		dst_port = d_port;
+		src_port = s_port;
+		type = TYPE_CLIENT;
+		sem_init( &create_sema,0, 0);
+		sem_init( &sender_sema, 0,0);
+		sem_init( &list_sema, 0,1);
+		sem_init( &state_sema, 0, 1);
+		printf("creating TCP client with dst_port:%d, src_port:%d\n",dst_port, src_port );
 
-		num = udp_receive(buf, si_dum);
-		if (num >= 20 ) {
-			tcp_header_t* tcp_header =(tcp_header_t *) buf;
-			if (src_port == unpack_uint16(tcp_header->dst_port)
-					&& dst_port == unpack_uint16(tcp_header->src_port)
-					&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
-				ack = unpack_uint32(tcp_header->seq_num);
-				seq = unpack_uint32(tcp_header->ack_num);
-				sem_wait(&create_sema);
-				state = CONNECTED;
-				sem_post(&create_sema);
-				add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
-				break;
+		if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1);//diep("socket");
+
+		memset((char *) &si_me, 0, sizeof(si_me));
+		si_me.sin_family = AF_INET;
+		si_me.sin_port = htons(src_port);
+		si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+
+		if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1);//diep("bind");G_ACK 16
+
+		struct timeval tv;
+		tv.tv_sec = 1;
+		tv.tv_usec = 0;
+		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tv, sizeof(struct timeval));
+
+		INIT_LIST_HEAD(&mylist.list);
+		if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
+			fprintf(stderr, "Error in creating send thread\n");
+			return 0;
+		}
+
+		struct sockaddr_in si_dum;
+		char buf[BUF_LEN];
+		int i, num;
+		for(i = 0;i<7;i++) {
+			add_send_task("",0,FLAG_SYN, seq, ack, window);
+
+			num = udp_receive(buf, si_dum);
+			if (num >= 20 ) {
+				tcp_header_t* tcp_header =(tcp_header_t *) buf;
+				if (src_port == unpack_uint16(tcp_header->dst_port)
+						&& dst_port == unpack_uint16(tcp_header->src_port)
+						&& tcp_header->flags == FLAG_SYNACK){//need to check the ip is the server or not
+					ack = unpack_uint32(tcp_header->seq_num);
+					seq = unpack_uint32(tcp_header->ack_num);
+					sem_wait(&create_sema);
+					state = CONNECTED;
+					sem_post(&create_sema);
+					add_send_task("", 0, FLAG_ACK, 1, unpack_uint32(tcp_header->seq_num)+1, window);
+					break;
+				}
 			}
 		}
+		printf("[creating client] SYNACK received\n");
+		receive_buf = (char *)malloc(RECEIVE_BUF_SIZE);
+
+
+		if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
+			fprintf(stderr, "Error in creating receive thread\n");
+			return 0;
+		}
+
+		if(pthread_create( &resend_thread, NULL, thread_resend, NULL) ){
+			fprintf(stderr, "Error in creating resend thread\n");
+			return 0;
+		}
+
+		//for(i = 0;i<7;i++) {
+		//	printf("sending ACK(SYN) No.%d\n", i);
+		//	add_send_task("",0,FLAG_ACK, 1, 0, window);//ack may not be 0
+		//	printf("receiving ACK No.%d\n", i);
+		//	udp_receive(buf, si_dum);
+		//}
+		sem_wait(&create_sema);
+		sem_wait(&create_sema);
+		sem_wait(&create_sema);
+		printf("[creating client] successful\n");
+		/**
+		  for(i = 0; i<256;i++){
+		  printf("i=%d\n",i);
+		  add_send_task("0123456789", 10 , 0,i, i, i);
+		  udp_receive(buf, si_dum);
+		  }
+		 */
+
+		return 1;
 	}
-	printf("[creating client] SYNACK received\n");
-	receive_buf = (char *)malloc(RECEIVE_BUF_SIZE);
-
-
-	if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
-		fprintf(stderr, "Error in creating receive thread\n");
-		return 0;
-	}
-
-	if(pthread_create( &resend_thread, NULL, thread_resend, NULL) ){
-		fprintf(stderr, "Error in creating resend thread\n");
-		return 0;
-	}
-
-	//for(i = 0;i<7;i++) {
-	//	printf("sending ACK(SYN) No.%d\n", i);
-	//	add_send_task("",0,FLAG_ACK, 1, 0, window);//ack may not be 0
-	//	printf("receiving ACK No.%d\n", i);
-	//	udp_receive(buf, si_dum);
-	//}
-	sem_wait(&create_sema);
-	sem_wait(&create_sema);
-	sem_wait(&create_sema);
-	printf("[creating client] successful\n");
-	/**
-	  for(i = 0; i<256;i++){
-	  printf("i=%d\n",i);
-	  add_send_task("0123456789", 10 , 0,i, i, i);
-	  udp_receive(buf, si_dum);
-	  }
-	 */
-
-	return 1;
-}
-int create_server(uint16_t src_p)
-{
-	dst_ip = "127.0.0.1";
-	dst_port = 3000;
-	src_port = src_p;
-	type =TYPE_SERVER;
-	sem_init( &sender_sema, 0,0);
-	sem_init( &list_sema, 0,1);
-	sem_init( &create_sema,0, 0);
-	sem_init( &state_sema, 0, 1);
-
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
-		printf("socket");
-	memset((char *) &si_me, 0, sizeof(si_me));
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(PORT);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1)
+	int create_server(uint16_t src_p)
 	{
-		printf("bind");
-	}
-	INIT_LIST_HEAD(&mylist.list);
-	pthread_t send_thread;
-	printf("c\n");
-	state = 0;
-	if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
-		fprintf(stderr, "Error in creating thread\n");
-		return 0;
-	}
-	if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
-		fprintf(stderr, "Error in creating receive thread\n");
-		return 0;
-	}
-	sem_wait(&create_sema);
-	sem_wait(&create_sema);
-	return 0;
-}
+		dst_ip = "127.0.0.1";
+		dst_port = 3000;
+		src_port = src_p;
+		type =TYPE_SERVER;
+		sem_init( &sender_sema, 0,0);
+		sem_init( &list_sema, 0,1);
+		sem_init( &create_sema,0, 0);
+		sem_init( &state_sema, 0, 1);
 
-int tcp_close(){
-	printf("[tcp_close]\" begin\n");
-	sem_wait(&state_sema);
-	state = WAITING_FOR_FIN;
-	sem_post(&state_sema);
-	int i;
-	for(i = 0;i<7;i++) {
-		printf("sending FIN No.%d\n", i);
-		add_send_task("",0,FLAG_FIN, seq, ack, window);
-		sleep(1);
+		if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+			printf("socket");
+		memset((char *) &si_me, 0, sizeof(si_me));
+		si_me.sin_family = AF_INET;
+		si_me.sin_port = htons(PORT);
+		si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+		if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me))==-1)
+		{
+			printf("bind");
+		}
+		INIT_LIST_HEAD(&mylist.list);
+		pthread_t send_thread;
+		printf("c\n");
+		state = 0;
+		if(pthread_create( &send_thread, NULL, thread_send, NULL) ){
+			fprintf(stderr, "Error in creating thread\n");
+			return 0;
+		}
+		if(pthread_create( &receive_thread, NULL, thread_receive, NULL) ){
+			fprintf(stderr, "Error in creating receive thread\n");
+			return 0;
+		}
+		sem_wait(&create_sema);
+		sem_wait(&create_sema);
+		return 0;
+	}
+
+	int tcp_close(){
+		printf("[tcp_close]\" begin\n");
 		sem_wait(&state_sema);
-		if (state == CLOSED) {
-			break;
+		state = WAITING_FOR_FIN;
+		sem_post(&state_sema);
+		int i;
+		for(i = 0;i<7;i++) {
+			printf("sending FIN No.%d\n", i);
+			add_send_task("",0,FLAG_FIN, seq, ack, window);
+			sleep(1);
+			sem_wait(&state_sema);
+			if (state == CLOSED) {
+				break;
+				sem_post(&state_sema);
+			}
 			sem_post(&state_sema);
 		}
-		sem_post(&state_sema);
+		printf("tcp connection closed\n");
 	}
-	printf("tcp connection closed\n");
-}
 
-int test_send(unsigned int number) {
-	unsigned int len = number * 1000;
-	int num_sent = 0;
-	int start_seq = seq;
-	struct timespec tv;
-	tv.tv_sec = 0;
-	tv.tv_nsec = 1000000;
-	while (num_sent < len) {
-		printf("window = %d\n", window);
-		int i;
-		int s = seq;
-		int start = s;
-		int sum = 0;
-		for ( i = 0; i < window; i++) {
-			add_send_task(test_data, PCKT_LEN, 0, s, ack, 0);
-			s+=PCKT_LEN;
-			sum += PCKT_LEN;
-			if (sum + num_sent >= len){
-				break;
-			}
-		}
-		
-		nanosleep(&tv, NULL);
-		if (sum == seq - start) {
-			window++;
-		} else {
-			window = window / 2;
-		}
-		num_sent = seq - start_seq;
-		//printf("[test_send] num_sent = %d\n", num_sent);
-	}
-	return num_sent;
-}
-
-int sonic_send(char *data, int len) {
-	int num_sent = 0;
-	int index = 0;
-	int start_seq = seq;
-	while (num_sent < len) {
-		printf("window = %d\n", window);
-		int i;
-		int j = index;
-		int s = seq;
-		int l = len - num_sent;
-		printf("num_sent = %d, l = %d\n", num_sent, l);
-		int start = s;
-		int sum = 0;
-		for ( i = 0; i < window; i++) {
-			if ( PCKT_LEN < l) {
-				add_send_task(data+j, PCKT_LEN, 0, s, ack, 0);
-				j += PCKT_LEN;
-				s += PCKT_LEN;
+	int test_send(unsigned int number) {
+		unsigned int len = number * 1000;
+		int num_sent = 0;
+		int start_seq = seq;
+		struct timespec tv;
+		tv.tv_sec = 0;
+		tv.tv_nsec = 1000000;
+		while (num_sent < len) {
+			//printf("window = %d\n", window);
+			int i;
+			int s = seq;
+			int start = s;
+			int sum = 0;
+			for ( i = 0; i < window; i++) {
+				add_send_task(test_data, PCKT_LEN, 0, s, ack, 0);
+				s+=PCKT_LEN;
 				sum += PCKT_LEN;
-			} else {
-				printf("[sonic_send] seq = %d, ack = %d\n", s, ack);
-				add_send_task(data+j, l, 0, s, ack, 0);
-				j += l;
-				s += l;
-				sum += l;
-				break;//last packet
+				if (sum + num_sent >= len){
+					break;
+				}
 			}
+
+			nanosleep(&tv, NULL);
+			if (sum == seq - start) {
+				window = window +10;
+			} else {
+				window = window / 2;
+			}
+			num_sent = seq - start_seq;
+			//printf("[test_send] num_sent = %d\n", num_sent);
 		}
-		printf("[sonic_send] globale seq = %d\n", seq);
-		sleep(1);
-		if (sum == seq - start) {
-			window++;
-		} else {
-			window = window / 2;
-		}
-		num_sent = seq - start_seq;
-		index = seq-start_seq;
-	}	
-	return num_sent;
-}
+		return num_sent;
+	}
+
+	int sonic_send(char *data, int len) {
+		int num_sent = 0;
+		int index = 0;
+		int start_seq = seq;
+		while (num_sent < len) {
+			printf("window = %d\n", window);
+			int i;
+			int j = index;
+			int s = seq;
+			int l = len - num_sent;
+			printf("num_sent = %d, l = %d\n", num_sent, l);
+			int start = s;
+			int sum = 0;
+			for ( i = 0; i < window; i++) {
+				if ( PCKT_LEN < l) {
+					add_send_task(data+j, PCKT_LEN, 0, s, ack, 0);
+					j += PCKT_LEN;
+					s += PCKT_LEN;
+					sum += PCKT_LEN;
+				} else {
+					printf("[sonic_send] seq = %d, ack = %d\n", s, ack);
+					add_send_task(data+j, l, 0, s, ack, 0);
+					j += l;
+					s += l;
+					sum += l;
+					break;//last packet
+				}
+			}
+			printf("[sonic_send] globale seq = %d\n", seq);
+			sleep(1);
+			if (sum == seq - start) {
+				window++;
+			} else {
+				window = window / 2;
+			}
+			num_sent = seq - start_seq;
+			index = seq-start_seq;
+		}	
+		return num_sent;
+	}
